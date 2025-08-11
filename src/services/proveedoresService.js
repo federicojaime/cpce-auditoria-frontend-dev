@@ -1,4 +1,4 @@
-// src/services/proveedoresService.js - VERSIÓN CORREGIDA CON ENDPOINTS CORRECTOS
+// src/services/proveedoresService.js - VERSIÓN CORREGIDA FUNCIONAL
 import api from './api';
 
 // Constantes para paginación y límites
@@ -17,7 +17,8 @@ class ProveedoresAPIError extends Error {
 
 // Utilitario para manejar respuestas de API
 const handleAPIResponse = (response) => {
-  if (response.data.success === false) {
+  // Si la respuesta tiene success: false, es un error controlado
+  if (response.data && response.data.success === false) {
     throw new ProveedoresAPIError(
       response.data.message || 'Error en la API',
       response.status,
@@ -98,9 +99,10 @@ export const getProveedores = async (params = {}) => {
       };
     }
 
+    // Error de conexión o red
     return {
       success: false,
-      message: 'Error de conexión al obtener proveedores',
+      message: 'Error de conexión al obtener proveedores. Verificar que el servidor esté disponible.',
       data: [],
       page: 1,
       totalPages: 0,
@@ -126,12 +128,17 @@ export const getProveedor = async (id) => {
     const response = await api.get(`/proveedores/${id}`);
     const data = handleAPIResponse(response);
 
-    return data.data; // Retornar directamente los datos del proveedor
+    return data; // Retornar toda la respuesta de la API
   } catch (error) {
     console.error(`❌ Error obteniendo proveedor ${id}:`, error);
 
     if (error instanceof ProveedoresAPIError) {
       throw new Error(error.message);
+    }
+
+    // Error de conexión
+    if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
+      throw new Error('Error de conexión con el servidor. Verifique que el backend esté ejecutándose.');
     }
 
     throw new Error('Error al obtener datos del proveedor');
@@ -146,7 +153,7 @@ export const getProveedor = async (id) => {
 export const createProveedor = async (proveedorData) => {
   try {
     // Validaciones básicas
-    if (!proveedorData.nombre?.trim()) {
+    if (!proveedorData.razon_social?.trim()) {
       throw new ProveedoresAPIError('La razón social es obligatoria', 400);
     }
 
@@ -160,39 +167,18 @@ export const createProveedor = async (proveedorData) => {
       throw new ProveedoresAPIError('Formato de CUIT inválido (XX-XXXXXXXX-X)', 400);
     }
 
-    console.log('📝 Creando proveedor:', proveedorData.nombre);
+    console.log('📝 Creando proveedor:', proveedorData.razon_social);
 
-    // Mapear campos del frontend a la API
+    // Los datos ya están en el formato correcto
     const apiData = {
-      razon_social: proveedorData.nombre.trim(),
-      cuit: proveedorData.cuit.trim(),
-      tipo_proveedor: mapTipoProveedor(proveedorData.tipo),
-      email_general: proveedorData.email?.trim() || '',
-      telefono_general: proveedorData.telefono?.trim() || '',
-      direccion_calle: proveedorData.direccion_calle?.trim() || '',
-      direccion_numero: proveedorData.direccion_numero?.trim() || '',
-      barrio: proveedorData.barrio?.trim() || '',
-      localidad: proveedorData.localidad?.trim() || '',
-      provincia: proveedorData.provincia?.trim() || '',
+      ...proveedorData,
       activo: proveedorData.activo !== false
     };
-
-    // Si hay contactos, incluirlos
-    if (proveedorData.contactos && proveedorData.contactos.length > 0) {
-      apiData.contactos = proveedorData.contactos.map(contacto => ({
-        nombre: contacto.nombre.trim(),
-        apellido: contacto.apellido.trim(),
-        cargo: contacto.cargo?.trim() || '',
-        email: contacto.email?.trim() || '',
-        telefono: contacto.telefono?.trim() || '',
-        principal: contacto.principal || false
-      }));
-    }
 
     const response = await api.post('/proveedores', apiData);
     const data = handleAPIResponse(response);
 
-    return data.data;
+    return data;
   } catch (error) {
     console.error('❌ Error creando proveedor:', error);
 
@@ -217,32 +203,17 @@ export const updateProveedor = async (id, updateData) => {
       throw new ProveedoresAPIError('ID de proveedor requerido', 400);
     }
 
-    // Mapear campos del frontend a la API
-    const apiData = {};
-
-    if (updateData.nombre) apiData.razon_social = updateData.nombre.trim();
-    if (updateData.razon_social) apiData.razon_social = updateData.razon_social.trim();
+    // Validar CUIT si se proporciona
     if (updateData.cuit) {
-      apiData.cuit = updateData.cuit.trim();
-      // Validar CUIT
       const cuitRegex = /^\d{2}-\d{8}-\d{1}$/;
-      if (!cuitRegex.test(apiData.cuit)) {
+      if (!cuitRegex.test(updateData.cuit)) {
         throw new ProveedoresAPIError('Formato de CUIT inválido (XX-XXXXXXXX-X)', 400);
       }
     }
-    if (updateData.tipo) apiData.tipo_proveedor = mapTipoProveedor(updateData.tipo);
-    if (updateData.email !== undefined) apiData.email_general = updateData.email.trim();
-    if (updateData.telefono !== undefined) apiData.telefono_general = updateData.telefono.trim();
-    if (updateData.direccion_calle !== undefined) apiData.direccion_calle = updateData.direccion_calle.trim();
-    if (updateData.direccion_numero !== undefined) apiData.direccion_numero = updateData.direccion_numero.trim();
-    if (updateData.barrio !== undefined) apiData.barrio = updateData.barrio.trim();
-    if (updateData.localidad !== undefined) apiData.localidad = updateData.localidad.trim();
-    if (updateData.provincia !== undefined) apiData.provincia = updateData.provincia.trim();
-    if (updateData.activo !== undefined) apiData.activo = updateData.activo;
 
     console.log(`📝 Actualizando proveedor ID: ${id}`);
 
-    const response = await api.put(`/proveedores/${id}`, apiData);
+    const response = await api.put(`/proveedores/${id}`, updateData);
     const data = handleAPIResponse(response);
 
     return data;
@@ -371,12 +342,14 @@ export const getTiposProveedores = async () => {
   try {
     console.log('🔍 Obteniendo tipos de proveedores');
 
+    // CORREGIDO: Usar el endpoint correcto según tu documentación
     const response = await api.get('/proveedores/tipos');
     const data = handleAPIResponse(response);
 
     return data.data || [];
   } catch (error) {
     console.error('❌ Error obteniendo tipos de proveedores:', error);
+    console.log('⚠️ Usando tipos predefinidos como fallback');
 
     // Fallback con tipos predefinidos
     return [
@@ -488,24 +461,6 @@ export const exportProveedoresToExcel = async (filters = {}) => {
 // ===== UTILITARIOS =====
 
 /**
- * Mapear tipo de proveedor del frontend a la API
- * @param {string} tipo - Tipo del frontend
- * @returns {string} Tipo para la API
- */
-const mapTipoProveedor = (tipo) => {
-  const mapping = {
-    'farmacia': 'Laboratorio',
-    'drogueria': 'Droguería',
-    'ambos': 'Ambos',
-    'laboratorio': 'Laboratorio',
-    'Laboratorio': 'Laboratorio',
-    'Droguería': 'Droguería',
-    'Ambos': 'Ambos'
-  };
-  return mapping[tipo] || 'Laboratorio';
-};
-
-/**
  * Validar datos de proveedor
  * @param {Object} data - Datos a validar
  * @returns {Object} Resultado de validación
@@ -513,7 +468,7 @@ const mapTipoProveedor = (tipo) => {
 export const validateProveedorData = (data) => {
   const errors = [];
 
-  if (!data.nombre?.trim() && !data.razon_social?.trim()) {
+  if (!data.razon_social?.trim()) {
     errors.push('La razón social es obligatoria');
   }
 
@@ -526,11 +481,11 @@ export const validateProveedorData = (data) => {
     }
   }
 
-  if (!data.tipo && !data.tipo_proveedor) {
+  if (!data.tipo_proveedor) {
     errors.push('El tipo de proveedor es obligatorio');
   }
 
-  if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+  if (data.email_general && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email_general)) {
     errors.push('Formato de email inválido');
   }
 
@@ -592,8 +547,7 @@ const proveedoresService = {
 
   // Utilitarios
   validateProveedorData,
-  formatProveedorData,
-  mapTipoProveedor
+  formatProveedorData
 };
 
 export default proveedoresService;
