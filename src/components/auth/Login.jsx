@@ -13,7 +13,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState('');
 
-  const { login, isAuthenticated, clearLoginError } = useAuth();
+  const { login, isAuthenticated, getUserDefaultRoute, clearLoginError } = useAuth();
   const navigate = useNavigate();
 
   // Cargar error de sessionStorage al montar
@@ -27,12 +27,15 @@ const Login = () => {
   // Redirigir si ya está autenticado
   useEffect(() => {
     if (isAuthenticated) {
-      // Limpiar error al autenticarse exitosamente
       sessionStorage.removeItem('login_error');
       setLocalError('');
-      navigate('/', { replace: true });
+      
+      // Redirigir según el rol del usuario
+      const defaultRoute = getUserDefaultRoute();
+      console.log('Login - Redirigiendo a:', defaultRoute);
+      navigate(defaultRoute, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, getUserDefaultRoute]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -55,14 +58,13 @@ const Login = () => {
         const error = result.message || 'Usuario y/o contraseña incorrectos';
         console.log('❌ Login fallido:', error);
         
-        // Guardar error en AMBOS lados
         setLocalError(error);
         sessionStorage.setItem('login_error', error);
-        
-        // Limpiar contraseña
         setPassword('');
+      } else {
+        // Login exitoso - la redirección se maneja en el useEffect
+        console.log('✅ Login exitoso para rol:', result.user.rol);
       }
-      // Si es exitoso, se maneja en el useEffect de isAuthenticated
     } catch (error) {
       const errorMsg = 'Error de conexión. Verifique su red.';
       setLocalError(errorMsg);

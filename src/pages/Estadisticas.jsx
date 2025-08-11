@@ -970,7 +970,7 @@ const Estadisticas = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </div> 
     );
 };
 

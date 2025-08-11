@@ -1,4 +1,4 @@
-// src/components/layout/Sidebar.jsx - ACTUALIZADO PARA DEMO
+// src/components/layout/Sidebar.jsx - ACTUALIZADO CON ROLES
 import React, { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -16,8 +16,8 @@ import {
     PlusIcon,
     ChevronDownIcon,
     ChevronRightIcon,
-    HeartIcon,
-    CurrencyDollarIcon
+    CurrencyDollarIcon,
+    ChartBarIcon
 } from '@heroicons/react/24/outline';
 
 const Sidebar = () => {
@@ -27,14 +27,25 @@ const Sidebar = () => {
         proveedores: true 
     });
     const location = useLocation();
-    const { user } = useAuth();
+    const { user, hasRole } = useAuth();
 
-    // Configuración de navegación actualizada para demo
+    // ===== CONFIGURACIÓN DE NAVEGACIÓN CON PERMISOS =====
     const navigationConfig = [
+        // Dashboard - Solo para administrativos (rol 5)
+        {
+            id: 'dashboard',
+            name: 'Dashboard',
+            href: '/',
+            icon: HomeIcon,
+            showForRoles: [5] // Solo rol administrativo
+        },
+        
+        // Auditoría Tratamiento Prolongado - Para rol 2 y administrativos (rol 5)
         {
             id: 'auditoriaProlongado',
             name: 'Auditoría Trat. Prolongado',
             icon: DocumentCheckIcon,
+            showForRoles: [2, 5], // Rol 2 (tratamientos prolongados) y rol 5 (administrativo)
             children: [
                 {
                     id: 'pendientes-prolongado',
@@ -68,10 +79,13 @@ const Sidebar = () => {
                 }
             ]
         },
+        
+        // Auditoría Alto Costo - Para rol 1 y administrativos (rol 5)
         {
             id: 'auditoriaAltoCosto',
             name: 'Auditoría Trat. Alto Costo',
             icon: CurrencyDollarIcon,
+            showForRoles: [1, 5], // Rol 1 (alto costo) y rol 5 (administrativo)
             children: [
                 {
                     id: 'pendientes-alto-costo',
@@ -105,10 +119,13 @@ const Sidebar = () => {
                 }
             ]
         },
+
+        // Proveedores - Para rol 3 y administrativos (rol 5)
         {
             id: 'proveedores',
             name: 'Proveedores',
             icon: BuildingOfficeIcon,
+            showForRoles: [3, 5], // Rol 3 (estadísticas/reportes) y rol 5 (administrativo)
             children: [
                 {
                     id: 'lista-proveedores',
@@ -130,13 +147,36 @@ const Sidebar = () => {
                 }
             ]
         },
+
+        // Estadísticas - Para rol 3 y administrativos (rol 5)
+        {
+            id: 'estadisticas',
+            name: 'Estadísticas',
+            href: '/estadisticas',
+            icon: ChartBarIcon,
+            showForRoles: [3, 5] // Rol 3 (estadísticas/reportes) y rol 5 (administrativo)
+        },
+
+        // Vademecum - Para rol 3 y administrativos (rol 5)
         {
             id: 'vademecum',
             name: 'Vademécum',
             href: '/vademecum',
-            icon: BookOpenIcon
+            icon: BookOpenIcon,
+            showForRoles: [3, 5] // Rol 3 (estadísticas/reportes) y rol 5 (administrativo)
         }
     ];
+
+    // ===== FILTRAR NAVEGACIÓN SEGÚN ROL =====
+    const getFilteredNavigation = () => {
+        return navigationConfig.filter(item => {
+            // Si no tiene restricciones de rol, mostrar para todos
+            if (!item.showForRoles) return true;
+            
+            // Verificar si el rol del usuario está en la lista de roles permitidos
+            return item.showForRoles.includes(user?.rol);
+        });
+    };
 
     // Verificar si una ruta está activa
     const isActive = (href) => {
@@ -167,6 +207,19 @@ const Sidebar = () => {
         }
         return null;
     };
+
+    // Obtener el nombre del rol para mostrar
+    const getRoleName = (rol) => {
+        const roleNames = {
+            1: 'Auditor Alto Costo',
+            2: 'Auditor Trat. Prolongado',
+            3: 'Estadísticas y Reportes',
+            5: 'Administrativo'
+        };
+        return roleNames[rol] || 'Usuario';
+    };
+
+    const filteredNavigation = getFilteredNavigation();
 
     return (
         <div className="flex flex-col h-full">
@@ -212,7 +265,7 @@ const Sidebar = () => {
                         </p>
                         <p className="text-xs text-gray-500 flex items-center">
                             <span className="inline-block w-2 h-2 bg-green-400 rounded-full mr-1"></span>
-                            {user?.rol === 5 ? 'Administrativo' : 'Médico Auditor'}
+                            {getRoleName(user?.rol)}
                         </p>
                     </div>
                 </div>
@@ -221,68 +274,74 @@ const Sidebar = () => {
             {/* Navegación */}
             <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
                 <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-3">
-                    MENÚ
+                    MENÚ {user?.rol === 1 && '(ALTO COSTO)'} {user?.rol === 2 && '(TRAT. PROLONGADO)'} {user?.rol === 3 && '(REPORTES)'}
                 </div>
 
-                {navigationConfig.map((item) => {
-                    const isItemActive = item.href ? isActive(item.href) : hasActiveChild(item.children);
-                    const isExpanded = expandedMenus[item.id];
+                {filteredNavigation.length === 0 ? (
+                    <div className="px-3 py-4 text-sm text-gray-500">
+                        No hay opciones disponibles para su rol.
+                    </div>
+                ) : (
+                    filteredNavigation.map((item) => {
+                        const isItemActive = item.href ? isActive(item.href) : hasActiveChild(item.children);
+                        const isExpanded = expandedMenus[item.id];
 
-                    return (
-                        <div key={item.id}>
-                            {item.children ? (
-                                // Menú con submenús
-                                <div>
-                                    <button
+                        return (
+                            <div key={item.id}>
+                                {item.children ? (
+                                    // Menú con submenús
+                                    <div>
+                                        <button
+                                            className={`${isItemActive
+                                                    ? 'bg-blue-50 border-r-2 border-blue-500 text-blue-700'
+                                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                } group w-full flex items-center pl-2 pr-1 py-2 text-left text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200`}
+                                            onClick={() => toggleMenu(item.id)}
+                                        >
+                                            <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
+                                            <span className="flex-1 truncate">{item.name}</span>
+                                            {isExpanded ? (
+                                                <ChevronDownIcon className="ml-2 h-4 w-4 flex-shrink-0 transition-transform duration-200" />
+                                            ) : (
+                                                <ChevronRightIcon className="ml-2 h-4 w-4 flex-shrink-0 transition-transform duration-200" />
+                                            )}
+                                        </button>
+
+                                        {/* Submenús */}
+                                        <div className={`mt-1 space-y-1 transition-all duration-200 overflow-hidden ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                                            }`}>
+                                            {item.children.map((child) => (
+                                                <Link
+                                                    key={child.id}
+                                                    to={child.href}
+                                                    className={`${isActive(child.href)
+                                                            ? 'bg-blue-100 text-blue-700 border-r-2 border-blue-500'
+                                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                        } group flex items-center pl-11 pr-2 py-2 text-sm font-medium rounded-md transition-all duration-200`}
+                                                >
+                                                    <child.icon className="mr-3 h-4 w-4 flex-shrink-0" />
+                                                    <span className="truncate">{child.name}</span>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    // Menú simple
+                                    <Link
+                                        to={item.href}
                                         className={`${isItemActive
                                                 ? 'bg-blue-50 border-r-2 border-blue-500 text-blue-700'
                                                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                            } group w-full flex items-center pl-2 pr-1 py-2 text-left text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200`}
-                                        onClick={() => toggleMenu(item.id)}
+                                            } group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200`}
                                     >
                                         <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                                        <span className="flex-1 truncate">{item.name}</span>
-                                        {isExpanded ? (
-                                            <ChevronDownIcon className="ml-2 h-4 w-4 flex-shrink-0 transition-transform duration-200" />
-                                        ) : (
-                                            <ChevronRightIcon className="ml-2 h-4 w-4 flex-shrink-0 transition-transform duration-200" />
-                                        )}
-                                    </button>
-
-                                    {/* Submenús */}
-                                    <div className={`mt-1 space-y-1 transition-all duration-200 overflow-hidden ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                                        }`}>
-                                        {item.children.map((child) => (
-                                            <Link
-                                                key={child.id}
-                                                to={child.href}
-                                                className={`${isActive(child.href)
-                                                        ? 'bg-blue-100 text-blue-700 border-r-2 border-blue-500'
-                                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                                    } group flex items-center pl-11 pr-2 py-2 text-sm font-medium rounded-md transition-all duration-200`}
-                                            >
-                                                <child.icon className="mr-3 h-4 w-4 flex-shrink-0" />
-                                                <span className="truncate">{child.name}</span>
-                                            </Link>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : (
-                                // Menú simple
-                                <Link
-                                    to={item.href}
-                                    className={`${isItemActive
-                                            ? 'bg-blue-50 border-r-2 border-blue-500 text-blue-700'
-                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                        } group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200`}
-                                >
-                                    <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                                    <span className="truncate">{item.name}</span>
-                                </Link>
-                            )}
-                        </div>
-                    );
-                })}
+                                        <span className="truncate">{item.name}</span>
+                                    </Link>
+                                )}
+                            </div>
+                        );
+                    })
+                )}
             </nav>
         </div>
     );
