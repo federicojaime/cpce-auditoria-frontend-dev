@@ -1,0 +1,593 @@
+// src/pages/SeguimientoPresupuestos.jsx
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import Breadcrumb from '../components/common/Breadcrumb';
+import Loading from '../components/common/Loading';
+import ErrorMessage from '../components/common/ErrorMessage';
+import {
+    ClockIcon,
+    BuildingOffice2Icon,
+    CurrencyDollarIcon,
+    CheckCircleIcon,
+    XCircleIcon,
+    ExclamationTriangleIcon,
+    EyeIcon,
+    ArrowPathIcon,
+    DocumentTextIcon,
+    PhoneIcon,
+    EnvelopeIcon,
+    CalendarIcon,
+    ChartBarIcon,
+    HandThumbUpIcon,
+    HandThumbDownIcon,
+    PaperAirplaneIcon
+} from '@heroicons/react/24/outline';
+
+const SeguimientoPresupuestos = () => {
+    const { user } = useAuth();
+
+    // Estados principales
+    const [solicitudes, setSolicitudes] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [filtroEstado, setFiltroEstado] = useState('TODOS');
+    const [mostrarDetalle, setMostrarDetalle] = useState(null);
+
+    // Breadcrumb configuration
+    const breadcrumbItems = [
+        { name: 'Compras', href: '/compras' },
+        { name: 'Seguimiento Presupuestos', href: '/seguimiento-presupuestos', current: true }
+    ];
+
+    // Estados posibles
+    const estados = [
+        { value: 'TODOS', label: 'Todos los Estados', color: 'gray' },
+        { value: 'ENVIADO', label: 'Enviado', color: 'blue' },
+        { value: 'RECIBIDO', label: 'Recibido', color: 'green' },
+        { value: 'PENDIENTE', label: 'Pendiente', color: 'yellow' },
+        { value: 'VENCIDO', label: 'Vencido', color: 'red' },
+        { value: 'ADJUDICADO', label: 'Adjudicado', color: 'purple' }
+    ];
+
+    // Datos demo de solicitudes enviadas
+    const solicitudesDemo = [
+        {
+            id: 'SOL-2025-001',
+            fechaEnvio: '2025-01-15T10:30:00Z',
+            auditorias: ['AC-2024-001', 'AC-2024-002'],
+            cantidadAuditorias: 2,
+            montoTotal: 750000,
+            proveedores: [
+                {
+                    id: 1,
+                    nombre: 'FARMACORP S.A.',
+                    contacto: 'Lic. Patricia Vega',
+                    email: 'pvega@farmacorp.com.ar',
+                    telefono: '351-4567890',
+                    estado: 'RECIBIDO',
+                    fechaRespuesta: '2025-01-16T14:20:00Z',
+                    presupuesto: {
+                        total: 720000,
+                        tiempoEntrega: '48-72hs',
+                        validez: '15 días',
+                        observaciones: 'Stock disponible. Precio preferencial por volumen.'
+                    }
+                },
+                {
+                    id: 2,
+                    nombre: 'ONCOMED DISTRIBUCIONES',
+                    contacto: 'Dr. Miguel Torres',
+                    email: 'm.torres@oncomed.com.ar',
+                    telefono: '351-7891234',
+                    estado: 'RECIBIDO',
+                    fechaRespuesta: '2025-01-16T16:45:00Z',
+                    presupuesto: {
+                        total: 695000,
+                        tiempoEntrega: '24-36hs',
+                        validez: '10 días',
+                        observaciones: 'Entrega express. Incluye seguimiento farmacoterapéutico.'
+                    }
+                },
+                {
+                    id: 3,
+                    nombre: 'GLOBAL PHARMA SOLUTIONS',
+                    contacto: 'Ing. Carlos Ruiz',
+                    email: 'c.ruiz@globalpharma.com.ar',
+                    telefono: '351-3456789',
+                    estado: 'PENDIENTE',
+                    fechaLimite: '2025-01-18T10:30:00Z'
+                },
+                {
+                    id: 4,
+                    nombre: 'BIOTECH MEDICAMENTOS',
+                    contacto: 'Dra. Ana Morales',
+                    email: 'a.morales@biotech.com.ar',
+                    telefono: '351-9876543',
+                    estado: 'ENVIADO',
+                    fechaLimite: '2025-01-18T10:30:00Z'
+                }
+            ],
+            estadoGeneral: 'PARCIAL'
+        },
+        {
+            id: 'SOL-2025-002',
+            fechaEnvio: '2025-01-14T15:45:00Z',
+            auditorias: ['AC-2024-003'],
+            cantidadAuditorias: 1,
+            montoTotal: 400000,
+            proveedores: [
+                {
+                    id: 1,
+                    nombre: 'FARMACORP S.A.',
+                    contacto: 'Lic. Patricia Vega',
+                    email: 'pvega@farmacorp.com.ar',
+                    telefono: '351-4567890',
+                    estado: 'RECIBIDO',
+                    fechaRespuesta: '2025-01-15T11:30:00Z',
+                    presupuesto: {
+                        total: 385000,
+                        tiempoEntrega: '48hs',
+                        validez: '20 días',
+                        observaciones: 'Medicamentos disponibles en stock central.'
+                    }
+                },
+                {
+                    id: 2,
+                    nombre: 'ONCOMED DISTRIBUCIONES',
+                    contacto: 'Dr. Miguel Torres',
+                    email: 'm.torres@oncomed.com.ar',
+                    telefono: '351-7891234',
+                    estado: 'VENCIDO',
+                    fechaLimite: '2025-01-17T15:45:00Z'
+                }
+            ],
+            estadoGeneral: 'PARCIAL'
+        },
+        {
+            id: 'SOL-2025-003',
+            fechaEnvio: '2025-01-13T09:15:00Z',
+            auditorias: ['AC-2024-001'],
+            cantidadAuditorias: 1,
+            montoTotal: 430000,
+            proveedores: [
+                {
+                    id: 1,
+                    nombre: 'FARMACORP S.A.',
+                    contacto: 'Lic. Patricia Vega',
+                    email: 'pvega@farmacorp.com.ar',
+                    telefono: '351-4567890',
+                    estado: 'ADJUDICADO',
+                    fechaRespuesta: '2025-01-14T10:20:00Z',
+                    fechaAdjudicacion: '2025-01-15T14:30:00Z',
+                    presupuesto: {
+                        total: 410000,
+                        tiempoEntrega: '24hs',
+                        validez: '30 días',
+                        observaciones: 'Mejor oferta. Adjudicado por precio y tiempo de entrega.'
+                    }
+                },
+                {
+                    id: 2,
+                    nombre: 'ONCOMED DISTRIBUCIONES',
+                    contacto: 'Dr. Miguel Torres',
+                    email: 'm.torres@oncomed.com.ar',
+                    telefono: '351-7891234',
+                    estado: 'RECIBIDO',
+                    fechaRespuesta: '2025-01-14T12:15:00Z',
+                    presupuesto: {
+                        total: 425000,
+                        tiempoEntrega: '48hs',
+                        validez: '15 días',
+                        observaciones: 'Oferta competitiva pero mayor tiempo de entrega.'
+                    }
+                }
+            ],
+            estadoGeneral: 'ADJUDICADO'
+        }
+    ];
+
+    // Simular carga de datos
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setSolicitudes(solicitudesDemo);
+            setLoading(false);
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, []);
+
+    // Filtrar solicitudes por estado
+    const solicitudesFiltradas = solicitudes.filter(solicitud => {
+        if (filtroEstado === 'TODOS') return true;
+        return solicitud.estadoGeneral === filtroEstado ||
+            solicitud.proveedores.some(p => p.estado === filtroEstado);
+    });
+
+    // Calcular estadísticas
+    const calcularEstadisticas = () => {
+        const stats = {
+            total: solicitudes.length,
+            enviados: 0,
+            recibidos: 0,
+            pendientes: 0,
+            vencidos: 0,
+            adjudicados: 0,
+            montoTotal: 0
+        };
+
+        solicitudes.forEach(solicitud => {
+            stats.montoTotal += solicitud.montoTotal;
+
+            if (solicitud.estadoGeneral === 'ADJUDICADO') {
+                stats.adjudicados++;
+            } else {
+                const estadosProveedores = solicitud.proveedores.map(p => p.estado);
+                if (estadosProveedores.includes('RECIBIDO')) stats.recibidos++;
+                if (estadosProveedores.includes('PENDIENTE')) stats.pendientes++;
+                if (estadosProveedores.includes('VENCIDO')) stats.vencidos++;
+                if (estadosProveedores.includes('ENVIADO')) stats.enviados++;
+            }
+        });
+
+        return stats;
+    };
+
+    const estadisticas = calcularEstadisticas();
+
+    // Obtener color del estado
+    const getEstadoColor = (estado) => {
+        const colores = {
+            'ENVIADO': 'bg-blue-100 text-blue-800',
+            'RECIBIDO': 'bg-green-100 text-green-800',
+            'PENDIENTE': 'bg-yellow-100 text-yellow-800',
+            'VENCIDO': 'bg-red-100 text-red-800',
+            'ADJUDICADO': 'bg-purple-100 text-purple-800',
+            'PARCIAL': 'bg-orange-100 text-orange-800'
+        };
+        return colores[estado] || 'bg-gray-100 text-gray-800';
+    };
+
+    // Obtener icono del estado
+    const getEstadoIcon = (estado) => {
+        switch (estado) {
+            case 'ENVIADO':
+                return <PaperAirplaneIcon className="h-4 w-4" />;
+            case 'RECIBIDO':
+                return <CheckCircleIcon className="h-4 w-4" />;
+            case 'PENDIENTE':
+                return <ClockIcon className="h-4 w-4" />;
+            case 'VENCIDO':
+                return <ExclamationTriangleIcon className="h-4 w-4" />;
+            case 'ADJUDICADO':
+                return <HandThumbUpIcon className="h-4 w-4" />;
+            default:
+                return <DocumentTextIcon className="h-4 w-4" />;
+        }
+    };
+
+    // Formatear fecha
+    const formatearFecha = (fecha) => {
+        return new Date(fecha).toLocaleDateString('es-AR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    // Calcular días transcurridos
+    const calcularDiasTranscurridos = (fechaEnvio) => {
+        const ahora = new Date();
+        const envio = new Date(fechaEnvio);
+        const diferencia = ahora - envio;
+        return Math.floor(diferencia / (1000 * 60 * 60 * 24));
+    };
+
+    if (loading) {
+        return (
+            <div className="p-4 lg:p-6">
+                <Loading text="Cargando seguimiento de presupuestos..." />
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-4 lg:p-6 space-y-6">
+            {/* Breadcrumb */}
+            <Breadcrumb items={breadcrumbItems} />
+
+            {/* Header */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h1 className="text-xl font-semibold text-gray-900 flex items-center">
+                                <ChartBarIcon className="h-6 w-6 mr-2 text-purple-600" />
+                                Seguimiento de Presupuestos
+                            </h1>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Monitoreo de solicitudes enviadas a proveedores y estado de cotizaciones
+                            </p>
+                        </div>
+                        <div className="flex space-x-3">
+                            <select
+                                value={filtroEstado}
+                                onChange={(e) => setFiltroEstado(e.target.value)}
+                                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            >
+                                {estados.map(estado => (
+                                    <option key={estado.value} value={estado.value}>
+                                        {estado.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                            >
+                                <ArrowPathIcon className="h-4 w-4 mr-2" />
+                                Actualizar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Estadísticas */}
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+                    <div className="text-2xl font-bold text-gray-800">{estadisticas.total}</div>
+                    <div className="text-sm text-gray-600">Total Solicitudes</div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-600">{estadisticas.enviados}</div>
+                    <div className="text-sm text-gray-600">Enviados</div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+                    <div className="text-2xl font-bold text-green-600">{estadisticas.recibidos}</div>
+                    <div className="text-sm text-gray-600">Recibidos</div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+                    <div className="text-2xl font-bold text-yellow-600">{estadisticas.pendientes}</div>
+                    <div className="text-sm text-gray-600">Pendientes</div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+                    <div className="text-2xl font-bold text-red-600">{estadisticas.vencidos}</div>
+                    <div className="text-sm text-gray-600">Vencidos</div>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+                    <div className="text-2xl font-bold text-purple-600">{estadisticas.adjudicados}</div>
+                    <div className="text-sm text-gray-600">Adjudicados</div>
+                </div>
+            </div>
+
+            {/* Lista de solicitudes */}
+            <div className="space-y-4">
+                {solicitudesFiltradas.length === 0 ? (
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                        <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
+                        <h3 className="mt-2 text-sm font-medium text-gray-900">No hay solicitudes</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                            {filtroEstado === 'TODOS'
+                                ? 'No se han enviado solicitudes de presupuesto aún'
+                                : `No hay solicitudes con estado: ${estados.find(e => e.value === filtroEstado)?.label}`
+                            }
+                        </p>
+                    </div>
+                ) : (
+                    solicitudesFiltradas.map((solicitud) => (
+                        <div key={solicitud.id} className="bg-white rounded-lg shadow-sm border border-gray-200">
+                            {/* Header de solicitud */}
+                            <div className="px-6 py-4 border-b border-gray-200">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            Solicitud #{solicitud.id}
+                                        </h3>
+                                        <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
+                                            <span className="flex items-center">
+                                                <CalendarIcon className="h-4 w-4 mr-1" />
+                                                {formatearFecha(solicitud.fechaEnvio)}
+                                            </span>
+                                            <span>
+                                                {solicitud.cantidadAuditorias} auditoría(s)
+                                            </span>
+                                            <span className="font-medium text-orange-600">
+                                                ${solicitud.montoTotal.toLocaleString()}
+                                            </span>
+                                            <span>
+                                                {calcularDiasTranscurridos(solicitud.fechaEnvio)} días transcurridos
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center space-x-3">
+                                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getEstadoColor(solicitud.estadoGeneral)}`}>
+                                            {getEstadoIcon(solicitud.estadoGeneral)}
+                                            <span className="ml-1">{solicitud.estadoGeneral}</span>
+                                        </span>
+                                        <button
+                                            onClick={() => setMostrarDetalle(mostrarDetalle === solicitud.id ? null : solicitud.id)}
+                                            className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                                        >
+                                            <EyeIcon className="h-4 w-4 mr-1" />
+                                            {mostrarDetalle === solicitud.id ? 'Ocultar' : 'Ver'} Detalle
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Resumen de proveedores */}
+                            <div className="px-6 py-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {solicitud.proveedores.map((proveedor) => (
+                                        <div key={proveedor.id} className="border border-gray-200 rounded-lg p-3">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h4 className="font-medium text-gray-900 text-sm">
+                                                    {proveedor.nombre}
+                                                </h4>
+                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getEstadoColor(proveedor.estado)}`}>
+                                                    {getEstadoIcon(proveedor.estado)}
+                                                    <span className="ml-1">{proveedor.estado}</span>
+                                                </span>
+                                            </div>
+                                            <div className="text-xs text-gray-500 space-y-1">
+                                                <div>{proveedor.contacto}</div>
+                                                {proveedor.estado === 'RECIBIDO' && proveedor.presupuesto && (
+                                                    <div className="mt-2 p-2 bg-green-50 rounded">
+                                                        <div className="font-medium text-green-800">
+                                                            ${proveedor.presupuesto.total.toLocaleString()}
+                                                        </div>
+                                                        <div className="text-green-600">
+                                                            Entrega: {proveedor.presupuesto.tiempoEntrega}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {proveedor.estado === 'ADJUDICADO' && (
+                                                    <div className="mt-2 p-2 bg-purple-50 rounded">
+                                                        <div className="font-medium text-purple-800">ADJUDICADO</div>
+                                                        <div className="text-purple-600">
+                                                            ${proveedor.presupuesto.total.toLocaleString()}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {(proveedor.estado === 'PENDIENTE' || proveedor.estado === 'VENCIDO') && proveedor.fechaLimite && (
+                                                    <div className="text-xs text-gray-400">
+                                                        Límite: {formatearFecha(proveedor.fechaLimite)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Detalle expandido */}
+                            {mostrarDetalle === solicitud.id && (
+                                <div className="border-t border-gray-200 px-6 py-4">
+                                    <div className="space-y-6">
+                                        {/* Auditorías incluidas */}
+                                        <div>
+                                            <h4 className="font-medium text-gray-900 mb-3">Auditorías Incluidas</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {solicitud.auditorias.map((auditoriaId) => (
+                                                    <div key={auditoriaId} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                                                        <div className="font-medium text-gray-900">#{auditoriaId}</div>
+                                                        <div className="text-sm text-gray-600">Estado: Aprobado para cotización</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Detalle de presupuestos recibidos */}
+                                        <div>
+                                            <h4 className="font-medium text-gray-900 mb-3">Presupuestos Recibidos</h4>
+                                            <div className="overflow-x-auto">
+                                                <table className="min-w-full divide-y divide-gray-200">
+                                                    <thead className="bg-gray-50">
+                                                        <tr>
+                                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                                Proveedor
+                                                            </th>
+                                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                                Estado
+                                                            </th>
+                                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                                Monto
+                                                            </th>
+                                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                                Entrega
+                                                            </th>
+                                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                                Validez
+                                                            </th>
+                                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                                                Acciones
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="bg-white divide-y divide-gray-200">
+                                                        {solicitud.proveedores.map((proveedor) => (
+                                                            <tr key={proveedor.id}>
+                                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                                    <div>
+                                                                        <div className="text-sm font-medium text-gray-900">
+                                                                            {proveedor.nombre}
+                                                                        </div>
+                                                                        <div className="text-sm text-gray-500">
+                                                                            {proveedor.contacto}
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEstadoColor(proveedor.estado)}`}>
+                                                                        {getEstadoIcon(proveedor.estado)}
+                                                                        <span className="ml-1">{proveedor.estado}</span>
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                                    {proveedor.presupuesto ?
+                                                                        `${proveedor.presupuesto.total.toLocaleString()}` :
+                                                                        '-'
+                                                                    }
+                                                                </td>
+                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                                    {proveedor.presupuesto?.tiempoEntrega || '-'}
+                                                                </td>
+                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                                    {proveedor.presupuesto?.validez || '-'}
+                                                                </td>
+                                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                                    <div className="flex space-x-2">
+                                                                        <button className="text-blue-600 hover:text-blue-900">
+                                                                            <PhoneIcon className="h-4 w-4" title="Contactar" />
+                                                                        </button>
+                                                                        <button className="text-green-600 hover:text-green-900">
+                                                                            <EnvelopeIcon className="h-4 w-4" title="Email" />
+                                                                        </button>
+                                                                        {proveedor.estado === 'RECIBIDO' && !proveedor.fechaAdjudicacion && (
+                                                                            <button className="text-purple-600 hover:text-purple-900">
+                                                                                <HandThumbUpIcon className="h-4 w-4" title="Adjudicar" />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))
+                )}
+            </div>
+
+            {/* Información adicional */}
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <div className="flex">
+                    <ExclamationTriangleIcon className="h-5 w-5 text-purple-400" />
+                    <div className="ml-3">
+                        <h3 className="text-sm font-medium text-purple-800">
+                            Información sobre el Seguimiento
+                        </h3>
+                        <div className="mt-2 text-sm text-purple-700">
+                            <ul className="list-disc list-inside space-y-1">
+                                <li><strong>Enviado:</strong> Solicitud enviada al proveedor</li>
+                                <li><strong>Recibido:</strong> Proveedor ha respondido con presupuesto</li>
+                                <li><strong>Pendiente:</strong> Esperando respuesta del proveedor</li>
+                                <li><strong>Vencido:</strong> Proveedor no respondió en el tiempo límite</li>
+                                <li><strong>Adjudicado:</strong> Proveedor seleccionado para la compra</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default SeguimientoPresupuestos;

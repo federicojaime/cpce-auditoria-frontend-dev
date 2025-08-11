@@ -1,7 +1,6 @@
-// src/pages/AltoCosto/ProcesarAuditoriaAltoCosto.jsx - COMPLETO DESDE CERO
+// src/pages/AltoCosto/ProcesarAuditoriaAltoCostoDemo.jsx - DEMO SIMPLIFICADO
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { auditoriasService } from '../../services/auditoriasService';
 import { useAuth } from '../../context/AuthContext';
 import Loading from '../../components/common/Loading';
 import ErrorMessage from '../../components/common/ErrorMessage';
@@ -14,38 +13,111 @@ import {
     CurrencyDollarIcon,
     ExclamationTriangleIcon,
     HeartIcon,
-    ShieldCheckIcon
+    ShieldCheckIcon,
+    ShoppingCartIcon
 } from '@heroicons/react/24/outline';
 
-const ProcesarAuditoriaAltoCosto = () => {
+const ProcesarAuditoriaAltoCostoDemo = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
 
     // Estados principales
-    const [auditoria, setAuditoria] = useState(null);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    // Estados específicos para alto costo
-    const [mesesSeleccionados, setMesesSeleccionados] = useState({});
+    // Estados para medicamentos (sin meses)
+    const [medicamentosSeleccionados, setMedicamentosSeleccionados] = useState({});
     const [coberturas, setCoberturas] = useState({});
     const [tiposCobertura, setTiposCobertura] = useState({});
-    const [costosEstimados, setCostosEstimados] = useState({});
     const [justificacionesMedicas, setJustificacionesMedicas] = useState({});
     const [notaGeneral, setNotaGeneral] = useState('');
-    const [requiereAutorizacion, setRequiereAutorizacion] = useState({});
+
+    // Datos demo de la auditoría de alto costo
+    const auditoriaDemo = {
+        id: id || 'AC-2024-001',
+        paciente: {
+            apellido: 'González',
+            nombre: 'María Elena',
+            dni: '32456789',
+            edad: 45,
+            sexo: 'F',
+            telefono: '351-5551234',
+            email: 'maria.gonzalez@email.com',
+            peso: '68'
+        },
+        medico: {
+            nombre: 'DR. ALEJANDRA MARÍA NIORO',
+            matricula: '255967',
+            especialidad: 'ONCOLOGÍA CLÍNICA'
+        },
+        diagnostico: {
+            diagnostico: 'Neoplasia maligna de mama. Tratamiento oncológico de alto costo',
+            fechaemision: '2025-03-31T17:59:51.000Z',
+            diagnostico2: 'Paciente femenina de 45 años con diagnóstico de carcinoma ductal invasivo de mama izquierda, estadio IIIB. Ha completado cirugía y quimioterapia neoadyuvante. Requiere tratamiento de mantenimiento con terapia dirigida de alto costo.'
+        },
+        medicamentos: [
+            {
+                id: 1,
+                idreceta: 'REC001',
+                renglon: 1,
+                nombrecomercial: 'HERCEPTIN 440MG',
+                monodroga: 'Trastuzumab',
+                presentacion: 'Vial 440mg polvo liofilizado',
+                laboratorio: 'Roche',
+                cantidad: 1,
+                dosis: '6mg/kg cada 21 días',
+                cobertura: '100',
+                tipo: 'ONC',
+                costo_estimado: 'CRITICO',
+                requiere_autorizacion: true,
+                justificacion_medica: ''
+            },
+            {
+                id: 2,
+                idreceta: 'REC001',
+                renglon: 2,
+                nombrecomercial: 'PERJETA 420MG',
+                monodroga: 'Pertuzumab',
+                presentacion: 'Vial 420mg/14ml',
+                laboratorio: 'Roche',
+                cantidad: 1,
+                dosis: '420mg cada 21 días',
+                cobertura: '100',
+                tipo: 'ONC',
+                costo_estimado: 'CRITICO',
+                requiere_autorizacion: true,
+                justificacion_medica: ''
+            },
+            {
+                id: 3,
+                idreceta: 'REC001',
+                renglon: 3,
+                nombrecomercial: 'ZOMETA 4MG',
+                monodroga: 'Ácido Zoledrónico',
+                presentacion: 'Vial 4mg/5ml',
+                laboratorio: 'Novartis',
+                cantidad: 1,
+                dosis: '4mg cada 28 días',
+                cobertura: '100',
+                tipo: 'ONC',
+                costo_estimado: 'ALTO',
+                requiere_autorizacion: true,
+                justificacion_medica: ''
+            }
+        ]
+    };
 
     // Breadcrumb configuration
     const breadcrumbItems = [
         { name: 'Auditoría Alto Costo', href: '/alto-costo' },
         { name: 'Pendientes', href: '/alto-costo/pendientes' },
-        { name: `Auditoría Alto Costo #${id}`, href: `/alto-costo/auditoria/${id}`, current: true }
+        { name: `Auditoría #${auditoriaDemo.id}`, href: `/alto-costo/auditoria/${auditoriaDemo.id}`, current: true }
     ];
 
-    // Opciones específicas para medicamentos de alto costo
+    // Opciones de cobertura para alto costo
     const opcionesCobertura = [
         { value: '70', label: '70% - Cobertura Estándar' },
         { value: '80', label: '80% - Cobertura Ampliada' },
@@ -58,134 +130,42 @@ const ProcesarAuditoriaAltoCosto = () => {
         { value: 'HO', label: 'HO - Medicamento Huérfano' },
         { value: 'BIAC', label: 'BIAC - Biotecnología Avanzada' },
         { value: 'CE', label: 'CE - Cobertura Especial' },
-        { value: 'DSC', label: 'DSC - Discapacidad' },
-        { value: 'INM', label: 'INM - Inmunosupresores' },
-        { value: 'NEU', label: 'NEU - Neurológicos Especiales' }
+        { value: 'INM', label: 'INM - Inmunosupresores' }
     ];
 
-    const nivelesRiesgo = [
-        { value: 'BAJO', label: 'Riesgo Bajo', color: 'green' },
-        { value: 'MEDIO', label: 'Riesgo Medio', color: 'yellow' },
-        { value: 'ALTO', label: 'Riesgo Alto', color: 'orange' },
-        { value: 'CRITICO', label: 'Riesgo Crítico', color: 'red' }
-    ];
-
-    // Cargar datos de la auditoría
+    // Simular carga inicial
     useEffect(() => {
-        loadAuditoria();
-    }, [id]);
+        const timer = setTimeout(() => {
+            // Inicializar estados con datos demo
+            const seleccionadosInit = {};
+            const coberturasInit = {};
+            const tiposInit = {};
+            const justificacionesInit = {};
 
-    const loadAuditoria = async () => {
-        try {
-            setLoading(true);
-            setError('');
-            
-            console.log('🔍 Cargando auditoría Alto Costo ID:', id);
-            
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/auditorias/${id}?tipo=alto-costo`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('cpce_token')}`,
-                    'Content-Type': 'application/json'
-                }
+            auditoriaDemo.medicamentos.forEach((med) => {
+                seleccionadosInit[med.renglon] = false; // Inicialmente no seleccionados
+                coberturasInit[med.renglon] = med.cobertura || '100';
+                tiposInit[med.renglon] = med.tipo || 'ONC';
+                justificacionesInit[med.renglon] = med.justificacion_medica || '';
             });
 
-            console.log('📡 Response status:', response.status);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-            
-            console.log('📊 RESPUESTA COMPLETA DEL SERVIDOR ALTO COSTO');
-            console.log('Success:', result.success);
-            console.log('Data:', result.data);
-            
-            if (result.success && result.data) {
-                console.log('👤 Datos del paciente:', result.data.paciente);
-                console.log('👨‍⚕️ Datos del médico:', result.data.medico);
-                console.log('🔬 Datos del diagnóstico:', result.data.diagnostico);
-                console.log('💊 Medicamentos Alto Costo:', result.data.medicamentos);
-                
-                setAuditoria(result.data);
-                
-                // Inicializar estados específicos para medicamentos de alto costo
-                if (result.data.medicamentos && result.data.medicamentos.length > 0) {
-                    const mesesInit = {};
-                    const coberturasInit = {};
-                    const tiposInit = {};
-                    const costosInit = {};
-                    const justificacionesInit = {};
-                    const autorizacionesInit = {};
-                    
-                    result.data.medicamentos.forEach((med) => {
-                        const key = `${med.idreceta}_${med.renglon}`;
-                        
-                        // Inicializar meses
-                        mesesInit[key] = {
-                            mes1: false, mes2: false, mes3: false,
-                            mes4: false, mes5: false, mes6: false
-                        };
-                        
-                        // Configuración específica para alto costo
-                        coberturasInit[med.renglon] = med.cobertura || '100';
-                        tiposInit[med.renglon] = med.tipo || 'ONC';
-                        costosInit[med.renglon] = med.costo_estimado || 'ALTO';
-                        justificacionesInit[med.renglon] = med.justificacion_medica || '';
-                        autorizacionesInit[med.renglon] = med.requiere_autorizacion || false;
-                    });
-                    
-                    setMesesSeleccionados(mesesInit);
-                    setCoberturas(coberturasInit);
-                    setTiposCobertura(tiposInit);
-                    setCostosEstimados(costosInit);
-                    setJustificacionesMedicas(justificacionesInit);
-                    setRequiereAutorizacion(autorizacionesInit);
-                }
-                
-                setError('');
-            } else {
-                console.error('❌ Respuesta inválida:', result);
-                setError(result.message || 'No se pudo cargar la auditoría de alto costo');
-                setAuditoria(null);
-            }
-        } catch (error) {
-            console.error('💥 Error cargando auditoría alto costo:', error);
-            setError(`Error al cargar los datos de alto costo: ${error.message}`);
-            setAuditoria(null);
-        } finally {
+            setMedicamentosSeleccionados(seleccionadosInit);
+            setCoberturas(coberturasInit);
+            setTiposCobertura(tiposInit);
+            setJustificacionesMedicas(justificacionesInit);
             setLoading(false);
-        }
-    };
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, []);
 
     // ===== MANEJADORES DE EVENTOS =====
 
-    // Manejar selección de meses
-    const handleMesChange = (key, mes) => {
-        setMesesSeleccionados(prev => ({
+    // Manejar selección de medicamento (aprobado/rechazado)
+    const handleMedicamentoChange = (renglon, aprobado) => {
+        setMedicamentosSeleccionados(prev => ({
             ...prev,
-            [key]: {
-                ...prev[key],
-                [mes]: !prev[key][mes]
-            }
-        }));
-    };
-
-    // Seleccionar/deseleccionar todos los meses
-    const handleTodosChange = (key) => {
-        const meses = mesesSeleccionados[key] || {};
-        const todosSeleccionados = Object.values(meses).every(mes => mes);
-        
-        setMesesSeleccionados(prev => ({
-            ...prev,
-            [key]: {
-                mes1: !todosSeleccionados,
-                mes2: !todosSeleccionados,
-                mes3: !todosSeleccionados,
-                mes4: !todosSeleccionados,
-                mes5: !todosSeleccionados,
-                mes6: !todosSeleccionados
-            }
+            [renglon]: aprobado
         }));
     };
 
@@ -208,14 +188,6 @@ const ProcesarAuditoriaAltoCosto = () => {
         }));
     };
 
-    // Manejar cambio de costo estimado
-    const handleCostoChange = (renglon, value) => {
-        setCostosEstimados(prev => ({
-            ...prev,
-            [renglon]: value
-        }));
-    };
-
     // Manejar justificación médica
     const handleJustificacionChange = (renglon, value) => {
         setJustificacionesMedicas(prev => ({
@@ -224,105 +196,20 @@ const ProcesarAuditoriaAltoCosto = () => {
         }));
     };
 
-    // Manejar requerimiento de autorización
-    const handleAutorizacionChange = (renglon, checked) => {
-        setRequiereAutorizacion(prev => ({
-            ...prev,
-            [renglon]: checked
-        }));
-    };
-
     // ===== ACCIONES PRINCIPALES =====
 
-    // Procesar auditoría de alto costo
-    const handleProcesar = async () => {
-        try {
-            setProcessing(true);
-            setError('');
+    // Enviar a Compras (nueva funcionalidad para alto costo)
+    const handleEnviarCompras = async () => {
+        const medicamentosAprobados = Object.entries(medicamentosSeleccionados)
+            .filter(([_, aprobado]) => aprobado)
+            .map(([renglon]) => renglon);
 
-            // Validar que al menos un medicamento esté seleccionado
-            const haySeleccionados = Object.values(mesesSeleccionados).some(meses => 
-                Object.values(meses).some(mes => mes)
-            );
-
-            if (!haySeleccionados) {
-                setError('Debe seleccionar al menos un mes para un medicamento');
-                return;
-            }
-
-            // Construir datos específicos para alto costo
-            const aprobados = [];
-            const rechazados = [];
-
-            Object.entries(mesesSeleccionados).forEach(([medicamentoKey, meses]) => {
-                const mesesAprobados = Object.entries(meses)
-                    .filter(([mes, seleccionado]) => seleccionado)
-                    .map(([mes]) => mes);
-
-                if (mesesAprobados.length > 0) {
-                    aprobados.push(medicamentoKey);
-                } else {
-                    rechazados.push(medicamentoKey);
-                }
-            });
-
-            const datosAltoCosto = {
-                // Datos básicos
-                chequedos: aprobados.join(','),
-                nochequeados: rechazados.join(','),
-                
-                // Coberturas específicas para alto costo
-                cobert1: coberturas[1] || '100',
-                cobert2: coberturas[2] || '100',
-                cobert3: coberturas[3] || '100',
-                cobert4: coberturas[4] || '100',
-                
-                // Tipos de cobertura especializados
-                cobert2_1: tiposCobertura[1] || 'ONC',
-                cobert2_2: tiposCobertura[2] || 'ONC',
-                cobert2_3: tiposCobertura[3] || 'ONC',
-                cobert2_4: tiposCobertura[4] || 'ONC',
-                
-                // Datos específicos de alto costo
-                nota: notaGeneral,
-                estadoIdentidad: 0,
-                tipo: 'alto-costo',
-                
-                // Información adicional para alto costo
-                mesesSeleccionados: JSON.stringify(mesesSeleccionados),
-                costosEstimados: JSON.stringify(costosEstimados),
-                justificacionesMedicas: JSON.stringify(justificacionesMedicas),
-                requiereAutorizacion: JSON.stringify(requiereAutorizacion),
-                
-                // Metadatos de procesamiento
-                procesadoPor: user?.id,
-                fechaProcesamiento: new Date().toISOString(),
-                categoriaEspecial: 'ALTO_COSTO'
-            };
-
-            console.log('📤 Enviando datos de alto costo:', datosAltoCosto);
-
-            const result = await auditoriasService.procesarAuditoria(id, datosAltoCosto);
-
-            if (result.success) {
-                setSuccess('✅ Auditoría de alto costo procesada correctamente');
-                setTimeout(() => {
-                    navigate('/alto-costo/pendientes');
-                }, 2500);
-            } else {
-                setError(result.message);
-            }
-        } catch (error) {
-            console.error('💥 Error procesando auditoría alto costo:', error);
-            setError('Error inesperado al procesar la auditoría de alto costo');
-        } finally {
-            setProcessing(false);
+        if (medicamentosAprobados.length === 0) {
+            setError('Debe aprobar al menos un medicamento para enviar a compras');
+            return;
         }
-    };
 
-    // Enviar a médico auditor especializado
-    const handleEnviarMedicoEspecializado = async () => {
-        if (!window.confirm('¿Está seguro de enviar esta auditoría de alto costo al médico auditor especializado en tratamientos de alto costo?')) {
+        if (!window.confirm('¿Está seguro de enviar esta auditoría de alto costo al área de Compras para cotización de proveedores?')) {
             return;
         }
 
@@ -330,27 +217,45 @@ const ProcesarAuditoriaAltoCosto = () => {
             setProcessing(true);
             setError('');
 
-            const datosEspecializados = {
-                tipo: 'alto-costo',
-                requiereEvaluacionEspecializada: true,
-                motivoDerivacion: 'Medicamentos de alto costo requieren evaluación especializada',
-                procesadoPor: user?.id,
-                fechaDerivacion: new Date().toISOString()
-            };
+            // Simular envío a compras
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
-            const result = await auditoriasService.enviarMedicoAuditor(id, datosEspecializados);
+            setSuccess('✅ Auditoría de alto costo enviada al área de Compras exitosamente');
 
-            if (result.success) {
-                setSuccess('✅ Auditoría de alto costo enviada al médico auditor especializado correctamente');
-                setTimeout(() => {
-                    navigate('/alto-costo/pendientes');
-                }, 2500);
-            } else {
-                setError(result.message);
-            }
+            setTimeout(() => {
+                navigate('/alto-costo/pendientes');
+            }, 2500);
+
         } catch (error) {
-            console.error('💥 Error enviando a médico especializado:', error);
-            setError('Error inesperado al enviar al médico auditor especializado');
+            console.error('Error enviando a compras:', error);
+            setError('Error inesperado al enviar a compras');
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    // Rechazar auditoría completa
+    const handleRechazarAuditoria = async () => {
+        if (!window.confirm('¿Está seguro de rechazar toda la auditoría de alto costo?')) {
+            return;
+        }
+
+        try {
+            setProcessing(true);
+            setError('');
+
+            // Simular rechazo
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            setSuccess('✅ Auditoría de alto costo rechazada correctamente');
+
+            setTimeout(() => {
+                navigate('/alto-costo/pendientes');
+            }, 2000);
+
+        } catch (error) {
+            console.error('Error rechazando auditoría:', error);
+            setError('Error inesperado al rechazar auditoría');
         } finally {
             setProcessing(false);
         }
@@ -365,26 +270,22 @@ const ProcesarAuditoriaAltoCosto = () => {
             'HO': 'bg-purple-100 text-purple-800',
             'BIAC': 'bg-blue-100 text-blue-800',
             'CE': 'bg-green-100 text-green-800',
-            'DSC': 'bg-yellow-100 text-yellow-800',
-            'INM': 'bg-indigo-100 text-indigo-800',
-            'NEU': 'bg-pink-100 text-pink-800'
+            'INM': 'bg-indigo-100 text-indigo-800'
         };
         return colores[tipo] || 'bg-gray-100 text-gray-800';
     };
 
     // Calcular resumen de selección
-    const calcularResumenSeleccion = () => {
-        const totalMedicamentos = auditoria?.medicamentos?.length || 0;
-        const medicamentosSeleccionados = Object.keys(mesesSeleccionados).filter(key => 
-            Object.values(mesesSeleccionados[key]).some(mes => mes)
-        ).length;
-        
-        return { totalMedicamentos, medicamentosSeleccionados };
+    const calcularResumen = () => {
+        const totalMedicamentos = auditoriaDemo.medicamentos.length;
+        const aprobados = Object.values(medicamentosSeleccionados).filter(Boolean).length;
+        const rechazados = totalMedicamentos - aprobados;
+
+        return { totalMedicamentos, aprobados, rechazados };
     };
 
     // ===== RENDERIZADO =====
 
-    // Loading state
     if (loading) {
         return (
             <div className="p-4 lg:p-6">
@@ -393,20 +294,7 @@ const ProcesarAuditoriaAltoCosto = () => {
         );
     }
 
-    // Error state
-    if (error && !auditoria) {
-        return (
-            <div className="p-4 lg:p-6 space-y-6">
-                <Breadcrumb items={breadcrumbItems} />
-                <ErrorMessage
-                    message={error}
-                    onRetry={() => window.location.reload()}
-                />
-            </div>
-        );
-    }
-
-    const { totalMedicamentos, medicamentosSeleccionados } = calcularResumenSeleccion();
+    const { totalMedicamentos, aprobados, rechazados } = calcularResumen();
 
     return (
         <div className="min-h-screen bg-gray-100 p-4">
@@ -433,7 +321,7 @@ const ProcesarAuditoriaAltoCosto = () => {
                 </div>
             )}
 
-            {/* Card principal de alto costo */}
+            {/* Card principal */}
             <div className="bg-white rounded-lg shadow-lg border-2 border-orange-300 overflow-hidden">
 
                 {/* Header especializado para alto costo */}
@@ -443,7 +331,7 @@ const ProcesarAuditoriaAltoCosto = () => {
                         AUDITORÍA MÉDICA - TRATAMIENTO ALTO COSTO
                         <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-500 bg-opacity-50">
                             <ExclamationTriangleIcon className="h-4 w-4 mr-1" />
-                            Evaluación Especializada Requerida
+                            Evaluación Especializada
                         </span>
                     </h1>
                 </div>
@@ -466,36 +354,32 @@ const ProcesarAuditoriaAltoCosto = () => {
                                 <div className="grid grid-cols-2 gap-x-3 text-sm">
                                     <div>
                                         <span className="text-gray-600 font-medium">Apellido:</span>
-                                        <div className="font-semibold text-gray-900">{auditoria?.paciente?.apellido || 'Sin datos'}</div>
+                                        <div className="font-semibold text-gray-900">{auditoriaDemo.paciente.apellido}</div>
                                     </div>
                                     <div>
                                         <span className="text-gray-600 font-medium">Nombre:</span>
-                                        <div className="font-semibold text-gray-900">{auditoria?.paciente?.nombre || 'Sin datos'}</div>
+                                        <div className="font-semibold text-gray-900">{auditoriaDemo.paciente.nombre}</div>
                                     </div>
                                     <div>
                                         <span className="text-gray-600 font-medium">DNI:</span>
-                                        <div className="font-semibold text-blue-700 font-mono">{auditoria?.paciente?.dni || 'Sin datos'}</div>
+                                        <div className="font-semibold text-blue-700 font-mono">{auditoriaDemo.paciente.dni}</div>
                                     </div>
                                     <div>
                                         <span className="text-gray-600 font-medium">Sexo:</span>
-                                        <div className="font-semibold text-gray-900">{auditoria?.paciente?.sexo || 'Sin datos'}</div>
+                                        <div className="font-semibold text-gray-900">{auditoriaDemo.paciente.sexo}</div>
                                     </div>
                                     <div>
                                         <span className="text-gray-600 font-medium">Edad:</span>
-                                        <div className="font-semibold text-gray-900">{auditoria?.paciente?.edad ? `${auditoria.paciente.edad} años` : 'Sin datos'}</div>
+                                        <div className="font-semibold text-gray-900">{auditoriaDemo.paciente.edad} años</div>
                                     </div>
                                     <div>
                                         <span className="text-gray-600 font-medium">Peso:</span>
-                                        <div className="font-semibold text-gray-900">{auditoria?.paciente?.peso || 'N/A'} kg</div>
-                                    </div>
-                                    <div className="col-span-2">
-                                        <span className="text-gray-600 font-medium">Teléfono:</span>
-                                        <div className="font-semibold text-gray-900">{auditoria?.paciente?.telefono || 'No registrado'}</div>
+                                        <div className="font-semibold text-gray-900">{auditoriaDemo.paciente.peso} kg</div>
                                     </div>
                                 </div>
                                 <div className="pt-2 border-t border-gray-200">
-                                    <span className="text-gray-600 font-medium text-sm">Email:</span>
-                                    <div className="font-semibold text-sm text-gray-900">{auditoria?.paciente?.email || 'No registrado'}</div>
+                                    <span className="text-gray-600 font-medium text-sm">Teléfono:</span>
+                                    <div className="font-semibold text-sm text-gray-900">{auditoriaDemo.paciente.telefono}</div>
                                 </div>
                             </div>
                         </div>
@@ -511,23 +395,13 @@ const ProcesarAuditoriaAltoCosto = () => {
                             <div className="p-4 space-y-3 text-sm">
                                 <div>
                                     <span className="text-orange-700 font-medium">Profesional:</span>
-                                    <div className="font-semibold text-orange-900">DR. ALEJANDRA MARÍA NIORO</div>
-                                    <div className="text-orange-600 font-medium text-xs mt-1">MP-255967 | ME-19465</div>
+                                    <div className="font-semibold text-orange-900">{auditoriaDemo.medico.nombre}</div>
+                                    <div className="text-orange-600 font-medium text-xs mt-1">MP-{auditoriaDemo.medico.matricula}</div>
                                 </div>
                                 <div>
                                     <span className="text-orange-700 font-medium">Especialidad:</span>
-                                    <div className="font-semibold text-orange-800">ONCOLOGÍA CLÍNICA</div>
+                                    <div className="font-semibold text-orange-800">{auditoriaDemo.medico.especialidad}</div>
                                 </div>
-                                <div>
-                                    <span className="text-orange-700 font-medium">Fecha de atención:</span>
-                                    <div className="font-semibold text-orange-900">31 de Marzo, 2025</div>
-                                </div>
-                                <div>
-                                    <span className="text-orange-700 font-medium">Tipo de consulta:</span>
-                                    <div className="font-semibold text-orange-800">Tratamiento Oncológico Especializado</div>
-                                </div>
-                                
-                                {/* Indicador de especialización */}
                                 <div className="mt-3 p-2 bg-orange-100 rounded border border-orange-300">
                                     <div className="flex items-center text-xs text-orange-800">
                                         <ShieldCheckIcon className="h-4 w-4 mr-1" />
@@ -537,7 +411,7 @@ const ProcesarAuditoriaAltoCosto = () => {
                             </div>
                         </div>
 
-                        {/* DIAGNÓSTICO Y TRATAMIENTO ESPECIALIZADO */}
+                        {/* DIAGNÓSTICO */}
                         <div className="bg-red-50 border-2 border-red-300 rounded-lg">
                             <div className="bg-red-200 px-4 py-3 border-b border-red-300">
                                 <h3 className="text-sm font-semibold text-red-800 flex items-center">
@@ -548,41 +422,24 @@ const ProcesarAuditoriaAltoCosto = () => {
                             <div className="p-4 space-y-3">
                                 <div className="bg-red-100 border border-red-300 rounded-md p-3">
                                     <div className="font-semibold text-red-900 text-sm">
-                                        {auditoria?.diagnostico?.diagnostico || 'Neoplasia maligna. Tratamiento oncológico de alto costo'}
+                                        {auditoriaDemo.diagnostico.diagnostico}
                                     </div>
                                 </div>
-                                
-                                <div className="text-xs text-red-700">
-                                    <span className="font-medium">Fecha de emisión:</span> 
-                                    <div className="font-semibold">{auditoria?.diagnostico?.fechaemision || '2025-03-31T17:59:51.000Z'}</div>
-                                </div>
-                                
-                                {auditoria?.diagnostico?.diagnostico2 && (
+
+                                {auditoriaDemo.diagnostico.diagnostico2 && (
                                     <div className="bg-white border border-red-200 rounded p-3 text-xs">
                                         <div className="text-red-700">
                                             <span className="font-medium">Historia clínica:</span><br />
-                                            <div className="mt-1">{auditoria.diagnostico.diagnostico2}</div>
+                                            <div className="mt-1">{auditoriaDemo.diagnostico.diagnostico2}</div>
                                         </div>
                                     </div>
                                 )}
-                                
-                                {/* Alertas críticas para alto costo */}
-                                <div className="space-y-2">
-                                    <div className="bg-red-100 border border-red-200 rounded p-2">
-                                        <div className="flex items-start">
-                                            <CurrencyDollarIcon className="h-4 w-4 text-red-600 mt-0.5 mr-2 flex-shrink-0" />
-                                            <div className="text-xs text-red-800">
-                                                <strong>Alto Costo:</strong> Medicamentos con valor superior a $50,000 por mes
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="bg-yellow-100 border border-yellow-200 rounded p-2">
-                                        <div className="flex items-start">
-                                            <ExclamationTriangleIcon className="h-4 w-4 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
-                                            <div className="text-xs text-yellow-800">
-                                                <strong>Atención:</strong> Requiere justificación médica detallada y autorización previa
-                                            </div>
+
+                                <div className="bg-red-100 border border-red-200 rounded p-2">
+                                    <div className="flex items-start">
+                                        <CurrencyDollarIcon className="h-4 w-4 text-red-600 mt-0.5 mr-2 flex-shrink-0" />
+                                        <div className="text-xs text-red-800">
+                                            <strong>Alto Costo:</strong> Medicamentos oncológicos especializados de alto valor económico
                                         </div>
                                     </div>
                                 </div>
@@ -590,318 +447,248 @@ const ProcesarAuditoriaAltoCosto = () => {
                         </div>
                     </div>
 
-                    {/* Tabla de medicamentos de alto costo */}
-                    {auditoria?.medicamentos && auditoria.medicamentos.length > 0 && (
-                        <div className="mb-8">
-                            <div className="bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-200 rounded-t-lg px-4 py-4">
-                                <h3 className="text-lg font-semibold text-orange-800 flex items-center">
-                                    <CurrencyDollarIcon className="h-5 w-5 mr-2" />
-                                    MEDICAMENTOS DE ALTO COSTO PARA AUDITORÍA
-                                    <span className="ml-3 text-sm bg-red-100 text-red-700 px-2 py-1 rounded-full">
-                                        {auditoria.medicamentos.length} medicamento{auditoria.medicamentos.length !== 1 ? 's' : ''}
-                                    </span>
-                                </h3>
-                            </div>
+                    {/* Tabla de medicamentos simplificada (sin meses) */}
+                    <div className="mb-8">
+                        <div className="bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-200 rounded-t-lg px-4 py-4">
+                            <h3 className="text-lg font-semibold text-orange-800 flex items-center">
+                                <CurrencyDollarIcon className="h-5 w-5 mr-2" />
+                                MEDICAMENTOS DE ALTO COSTO PARA EVALUACIÓN
+                                <span className="ml-3 text-sm bg-red-100 text-red-700 px-2 py-1 rounded-full">
+                                    {auditoriaDemo.medicamentos.length} medicamento{auditoriaDemo.medicamentos.length !== 1 ? 's' : ''}
+                                </span>
+                            </h3>
+                        </div>
 
-                            <div className="border-2 border-t-0 border-orange-200 rounded-b-lg overflow-hidden">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full" style={{ minWidth: '1600px' }}>
-                                        <thead className="bg-gradient-to-r from-orange-100 to-red-100 border-b-2 border-orange-200">
-                                            <tr>
-                                                <th className="px-3 py-3 text-left text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    MEDICAMENTO
-                                                </th>
-                                                <th className="px-3 py-3 text-left text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    MONODROGA
-                                                </th>
-                                                <th className="px-3 py-3 text-left text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    PRESENTACIÓN
-                                                </th>
-                                                <th className="px-2 py-3 text-center text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    CANT.
-                                                </th>
-                                                <th className="px-2 py-3 text-center text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    DOSIS
-                                                </th>
-                                                <th className="px-2 py-3 text-center text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    COBERTURA %
-                                                </th>
-                                                <th className="px-2 py-3 text-center text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    TIPO ESPECIALIZADO
-                                                </th>
-                                                <th className="px-2 py-3 text-center text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    COSTO ESTIMADO
-                                                </th>
-                                                <th className="px-2 py-3 text-center text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    AUTORIZACIÓN
-                                                </th>
-                                                <th className="px-1 py-3 text-center text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    M1
-                                                </th>
-                                                <th className="px-1 py-3 text-center text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    M2
-                                                </th>
-                                                <th className="px-1 py-3 text-center text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    M3
-                                                </th>
-                                                <th className="px-1 py-3 text-center text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    M4
-                                                </th>
-                                                <th className="px-1 py-3 text-center text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    M5
-                                                </th>
-                                                <th className="px-1 py-3 text-center text-xs font-bold text-gray-800 uppercase border-r border-orange-200">
-                                                    M6
-                                                </th>
-                                                <th className="px-2 py-3 text-center text-xs font-bold text-gray-800 uppercase">
-                                                    TODOS
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {auditoria.medicamentos.map((medicamento, index) => {
-                                                const key = `${medicamento.idreceta}_${medicamento.renglon}`;
-                                                const meses = mesesSeleccionados[key] || {
-                                                    mes1: false, mes2: false, mes3: false,
-                                                    mes4: false, mes5: false, mes6: false
-                                                };
-                                                const todosSeleccionados = Object.values(meses).every(mes => mes);
-                                                
-                                                return (
-                                                    <tr key={key} className={index % 2 === 0 ? 'bg-white' : 'bg-orange-25'}>
-                                                        {/* Nombre Comercial */}
-                                                        <td className="px-3 py-4 text-sm border-r border-orange-200">
-                                                            <div className="font-bold text-gray-900">
-                                                                {medicamento.nombrecomercial}
+                        <div className="border-2 border-t-0 border-orange-200 rounded-b-lg overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-gradient-to-r from-orange-100 to-red-100 border-b-2 border-orange-200">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-800 uppercase">
+                                                MEDICAMENTO
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-800 uppercase">
+                                                PRESENTACIÓN
+                                            </th>
+                                            <th className="px-3 py-3 text-center text-xs font-bold text-gray-800 uppercase">
+                                                CANTIDAD
+                                            </th>
+                                            <th className="px-3 py-3 text-center text-xs font-bold text-gray-800 uppercase">
+                                                DOSIS
+                                            </th>
+                                            <th className="px-3 py-3 text-center text-xs font-bold text-gray-800 uppercase">
+                                                COBERTURA %
+                                            </th>
+                                            <th className="px-3 py-3 text-center text-xs font-bold text-gray-800 uppercase">
+                                                TIPO
+                                            </th>
+                                            <th className="px-3 py-3 text-center text-xs font-bold text-gray-800 uppercase">
+                                                COSTO
+                                            </th>
+                                            <th className="px-4 py-3 text-center text-xs font-bold text-gray-800 uppercase">
+                                                DECISIÓN
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {auditoriaDemo.medicamentos.map((medicamento, index) => {
+                                            const aprobado = medicamentosSeleccionados[medicamento.renglon];
+
+                                            return (
+                                                <tr key={medicamento.renglon} className={index % 2 === 0 ? 'bg-white' : 'bg-orange-25'}>
+                                                    {/* Medicamento */}
+                                                    <td className="px-4 py-4 text-sm">
+                                                        <div className="font-bold text-gray-900">
+                                                            {medicamento.nombrecomercial}
+                                                        </div>
+                                                        <div className="text-xs text-gray-600 mt-1">
+                                                            {medicamento.monodroga}
+                                                        </div>
+                                                        <div className="text-xs text-orange-600 mt-1">
+                                                            Lab: {medicamento.laboratorio}
+                                                        </div>
+                                                    </td>
+
+                                                    {/* Presentación */}
+                                                    <td className="px-4 py-4 text-sm text-gray-700">
+                                                        {medicamento.presentacion}
+                                                    </td>
+
+                                                    {/* Cantidad */}
+                                                    <td className="px-3 py-4 text-sm text-center">
+                                                        <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-800 rounded-full text-xs font-bold">
+                                                            {medicamento.cantidad}
+                                                        </span>
+                                                    </td>
+
+                                                    {/* Dosis */}
+                                                    <td className="px-3 py-4 text-sm text-center text-gray-700">
+                                                        {medicamento.dosis}
+                                                    </td>
+
+                                                    {/* Cobertura */}
+                                                    <td className="px-3 py-4 text-center">
+                                                        <input
+                                                            type="number"
+                                                            min="70"
+                                                            max="100"
+                                                            step="10"
+                                                            value={coberturas[medicamento.renglon]}
+                                                            onChange={(e) => handleCoberturaChange(medicamento.renglon, e.target.value)}
+                                                            className="w-16 px-2 py-1 text-sm text-center border-2 border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 font-bold"
+                                                        />
+                                                        <div className="text-xs text-orange-600 font-medium mt-1">%</div>
+                                                    </td>
+
+                                                    {/* Tipo */}
+                                                    <td className="px-3 py-4 text-center">
+                                                        <select
+                                                            value={tiposCobertura[medicamento.renglon]}
+                                                            onChange={(e) => handleTipoCoberturaChange(medicamento.renglon, e.target.value)}
+                                                            className="px-2 py-1 text-xs border-2 border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium"
+                                                        >
+                                                            {tiposCoberturaMedicamento.map(tipo => (
+                                                                <option key={tipo.value} value={tipo.value}>
+                                                                    {tipo.label}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </td>
+
+                                                    {/* Costo */}
+                                                    <td className="px-3 py-4 text-center">
+                                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">
+                                                            <CurrencyDollarIcon className="h-3 w-3 mr-1" />
+                                                            {medicamento.costo_estimado}
+                                                        </span>
+                                                    </td>
+
+                                                    {/* Decisión */}
+                                                    <td className="px-4 py-4 text-center">
+                                                        <div className="space-y-2">
+                                                            <div className="flex justify-center space-x-2">
+                                                                <button
+                                                                    onClick={() => handleMedicamentoChange(medicamento.renglon, true)}
+                                                                    className={`px-3 py-1 text-xs font-medium rounded-md border-2 transition-all ${aprobado
+                                                                            ? 'bg-green-100 text-green-800 border-green-300'
+                                                                            : 'bg-white text-gray-600 border-gray-300 hover:border-green-300'
+                                                                        }`}
+                                                                >
+                                                                    <CheckCircleIcon className="h-3 w-3 mr-1 inline" />
+                                                                    Aprobar
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleMedicamentoChange(medicamento.renglon, false)}
+                                                                    className={`px-3 py-1 text-xs font-medium rounded-md border-2 transition-all ${aprobado === false
+                                                                            ? 'bg-red-100 text-red-800 border-red-300'
+                                                                            : 'bg-white text-gray-600 border-gray-300 hover:border-red-300'
+                                                                        }`}
+                                                                >
+                                                                    <XMarkIcon className="h-3 w-3 mr-1 inline" />
+                                                                    Rechazar
+                                                                </button>
                                                             </div>
-                                                            <div className="text-xs text-orange-600 mt-1">
-                                                                Lab: {medicamento.laboratorio || 'No especificado'}
-                                                            </div>
-                                                        </td>
-                                                        
-                                                        {/* Monodroga */}
-                                                        <td className="px-3 py-4 text-sm border-r border-orange-200">
-                                                            <div className="font-medium text-gray-800">
-                                                                {medicamento.monodroga || '-'}
-                                                            </div>
-                                                        </td>
-                                                        
-                                                        {/* Presentación */}
-                                                        <td className="px-3 py-4 text-sm border-r border-orange-200">
-                                                            <div className="text-gray-700">
-                                                                {medicamento.presentacion || '-'}
-                                                            </div>
-                                                        </td>
-                                                        
-                                                        {/* Cantidad */}
-                                                        <td className="px-2 py-4 text-sm text-center border-r border-orange-200">
-                                                            <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-800 rounded-full text-xs font-bold">
-                                                                {medicamento.cantidad}
-                                                            </span>
-                                                        </td>
-                                                        
-                                                        {/* Dosis */}
-                                                        <td className="px-2 py-4 text-sm text-center border-r border-orange-200">
-                                                            <div className="text-gray-700 font-medium">
-                                                                {medicamento.dosis || '-'}
-                                                            </div>
-                                                        </td>
-                                                        
-                                                        {/* Cobertura % */}
-                                                        <td className="px-2 py-4 text-center border-r border-orange-200">
-                                                            <div className="flex flex-col items-center space-y-1">
-                                                                <input
-                                                                    type="number"
-                                                                    min="70"
-                                                                    max="100"
-                                                                    step="10"
-                                                                    value={coberturas[medicamento.renglon] || medicamento.cobertura || '100'}
-                                                                    onChange={(e) => handleCoberturaChange(medicamento.renglon, e.target.value)}
-                                                                    disabled={auditoria?.botonesDeshabilitados}
-                                                                    className="w-16 px-2 py-1 text-sm text-center border-2 border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100 font-bold"
-                                                                />
-                                                                <span className="text-xs text-orange-600 font-medium">%</span>
-                                                            </div>
-                                                        </td>
-                                                        
-                                                        {/* Tipo Especializado */}
-                                                        <td className="px-2 py-4 text-center border-r border-orange-200">
-                                                            <select
-                                                                value={tiposCobertura[medicamento.renglon] || medicamento.tipo || 'ONC'}
-                                                                onChange={(e) => handleTipoCoberturaChange(medicamento.renglon, e.target.value)}
-                                                                disabled={auditoria?.botonesDeshabilitados}
-                                                                className="px-2 py-1 text-xs border-2 border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100 font-medium"
-                                                            >
-                                                                {tiposCoberturaMedicamento.map(tipo => (
-                                                                    <option key={tipo.value} value={tipo.value}>
-                                                                        {tipo.label}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                        </td>
-                                                        
-                                                        {/* Costo Estimado */}
-                                                        <td className="px-2 py-4 text-center border-r border-orange-200">
-                                                            <div className="space-y-1">
-                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">
-                                                                    <CurrencyDollarIcon className="h-3 w-3 mr-1" />
-                                                                    {costosEstimados[medicamento.renglon] || 'ALTO'}
-                                                                </span>
-                                                                <div className="text-xs text-gray-600">
-                                                                    +$50K/mes
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        
-                                                        {/* Autorización Requerida */}
-                                                        <td className="px-2 py-4 text-center border-r border-orange-200">
-                                                            <div className="flex flex-col items-center space-y-1">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={requiereAutorizacion[medicamento.renglon] || false}
-                                                                    onChange={(e) => handleAutorizacionChange(medicamento.renglon, e.target.checked)}
-                                                                    disabled={auditoria?.botonesDeshabilitados}
-                                                                    className="h-4 w-4 text-red-600 rounded border-gray-300 focus:ring-red-500 disabled:opacity-50"
-                                                                />
-                                                                <span className="text-xs text-gray-600">
-                                                                    {requiereAutorizacion[medicamento.renglon] ? 'SÍ' : 'NO'}
-                                                                </span>
-                                                            </div>
-                                                        </td>
-                                                        
-                                                        {/* Checkboxes para cada mes */}
-                                                        {[1, 2, 3, 4, 5, 6].map((mes) => (
-                                                            <td key={`mes${mes}`} className="px-1 py-4 text-center border-r border-orange-200">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={meses[`mes${mes}`]}
-                                                                    onChange={() => handleMesChange(key, `mes${mes}`)}
-                                                                    disabled={auditoria?.botonesDeshabilitados}
-                                                                    className="h-4 w-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500 disabled:opacity-50"
-                                                                />
-                                                            </td>
-                                                        ))}
-                                                        
-                                                        {/* Checkbox Todos */}
-                                                        <td className="px-2 py-4 text-center">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={todosSeleccionados}
-                                                                onChange={() => handleTodosChange(key)}
-                                                                disabled={auditoria?.botonesDeshabilitados}
-                                                                className="h-5 w-5 text-orange-600 rounded border-gray-300 focus:ring-orange-500 disabled:opacity-50"
-                                                            />
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
-                            
-                            {/* Resumen de selección especializado */}
-                            <div className="mt-4 p-4 bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-200 rounded-lg">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <p className="text-sm font-bold text-orange-800">
-                                            <CurrencyDollarIcon className="h-4 w-4 inline mr-1" />
-                                            Medicamentos de alto costo seleccionados: 
-                                            <span className="ml-2 text-lg">{medicamentosSeleccionados} de {totalMedicamentos}</span>
-                                        </p>
-                                        <p className="text-xs text-orange-700 mt-1">
-                                            ⚠️ Cada medicamento seleccionado requiere justificación médica detallada
-                                        </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-sm font-medium text-gray-700">
-                                            Progreso de selección:
-                                        </div>
-                                        <div className="text-lg font-bold text-orange-600">
-                                            {totalMedicamentos > 0 ? Math.round((medicamentosSeleccionados / totalMedicamentos) * 100) : 0}%
-                                        </div>
-                                    </div>
+                        </div>
+
+                        {/* Resumen de decisiones */}
+                        <div className="mt-4 p-4 bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-200 rounded-lg">
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div>
+                                    <div className="text-2xl font-bold text-gray-800">{totalMedicamentos}</div>
+                                    <div className="text-sm text-gray-600">Total Medicamentos</div>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-green-700">{aprobados}</div>
+                                    <div className="text-sm text-gray-600">Aprobados</div>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-red-700">{rechazados}</div>
+                                    <div className="text-sm text-gray-600">Rechazados</div>
                                 </div>
                             </div>
                         </div>
-                    )}
+                    </div>
 
-                    {/* Sección de Justificaciones Médicas Individuales */}
-                    {auditoria?.medicamentos && auditoria.medicamentos.length > 0 && (
-                        <div className="mb-8">
-                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-t-lg px-4 py-4">
-                                <h3 className="text-lg font-semibold text-blue-800 flex items-center">
-                                    <ExclamationTriangleIcon className="h-5 w-5 mr-2" />
-                                    JUSTIFICACIONES MÉDICAS POR MEDICAMENTO
-                                </h3>
-                                <p className="text-sm text-blue-700 mt-1">
-                                    Cada medicamento de alto costo debe tener justificación médica detallada
-                                </p>
-                            </div>
-                            
-                            <div className="border-2 border-t-0 border-blue-200 rounded-b-lg bg-white">
-                                <div className="p-4 space-y-4">
-                                    {auditoria.medicamentos.map((medicamento, index) => (
-                                        <div key={`justif-${medicamento.renglon}`} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                                            <div className="flex items-start space-x-4">
-                                                <div className="flex-shrink-0">
-                                                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                                        <span className="text-sm font-bold text-blue-800">
-                                                            {index + 1}
-                                                        </span>
-                                                    </div>
+                    {/* Justificaciones médicas */}
+                    <div className="mb-8">
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-t-lg px-4 py-4">
+                            <h3 className="text-lg font-semibold text-blue-800 flex items-center">
+                                <ExclamationTriangleIcon className="h-5 w-5 mr-2" />
+                                JUSTIFICACIONES MÉDICAS
+                            </h3>
+                            <p className="text-sm text-blue-700 mt-1">
+                                Detalle las justificaciones para cada medicamento aprobado
+                            </p>
+                        </div>
+
+                        <div className="border-2 border-t-0 border-blue-200 rounded-b-lg bg-white">
+                            <div className="p-4 space-y-4">
+                                {auditoriaDemo.medicamentos.map((medicamento, index) => (
+                                    <div key={`justif-${medicamento.renglon}`} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                        <div className="flex items-start space-x-4">
+                                            <div className="flex-shrink-0">
+                                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                                    <span className="text-sm font-bold text-blue-800">
+                                                        {index + 1}
+                                                    </span>
                                                 </div>
-                                                <div className="flex-1">
-                                                    <div className="mb-2">
-                                                        <h4 className="font-semibold text-gray-900">
-                                                            {medicamento.nombrecomercial}
-                                                        </h4>
-                                                        <p className="text-sm text-gray-600">
-                                                            {medicamento.monodroga} - {tiposCobertura[medicamento.renglon] || 'ONC'}
-                                                        </p>
-                                                    </div>
-                                                    <textarea
-                                                        value={justificacionesMedicas[medicamento.renglon] || ''}
-                                                        onChange={(e) => handleJustificacionChange(medicamento.renglon, e.target.value)}
-                                                        rows={3}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                        placeholder={`Justificación médica detallada para ${medicamento.nombrecomercial}. Incluya: diagnóstico específico, tratamientos previos fallidos, criterios de elegibilidad, duración estimada del tratamiento...`}
-                                                        disabled={auditoria?.botonesDeshabilitados}
-                                                    />
-                                                    <div className="mt-2 text-xs text-gray-500">
-                                                        Caracteres: {(justificacionesMedicas[medicamento.renglon] || '').length}/500
-                                                    </div>
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="mb-2">
+                                                    <h4 className="font-semibold text-gray-900">
+                                                        {medicamento.nombrecomercial}
+                                                    </h4>
+                                                    <p className="text-sm text-gray-600">
+                                                        {medicamento.monodroga} - {tiposCobertura[medicamento.renglon]}
+                                                    </p>
+                                                </div>
+                                                <textarea
+                                                    value={justificacionesMedicas[medicamento.renglon] || ''}
+                                                    onChange={(e) => handleJustificacionChange(medicamento.renglon, e.target.value)}
+                                                    rows={3}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    placeholder={`Justificación médica para ${medicamento.nombrecomercial}. Incluya criterios clínicos, estudios de laboratorio, respuesta a tratamientos previos, etc.`}
+                                                />
+                                                <div className="mt-2 text-xs text-gray-500">
+                                                    Caracteres: {(justificacionesMedicas[medicamento.renglon] || '').length}/500
                                                 </div>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                    )}
+                    </div>
 
-                    {/* Nota General y Observaciones Clínicas */}
+                    {/* Nota General */}
                     <div className="mb-8">
                         <div className="bg-gradient-to-r from-green-50 to-teal-50 border-2 border-green-200 rounded-t-lg px-4 py-4">
                             <h3 className="text-lg font-semibold text-green-800">
-                                NOTA GENERAL Y OBSERVACIONES CLÍNICAS
+                                OBSERVACIONES GENERALES
                             </h3>
                             <p className="text-sm text-green-700 mt-1">
-                                Observaciones generales sobre el caso y consideraciones especiales
+                                Observaciones generales sobre el caso de alto costo
                             </p>
                         </div>
                         <div className="border-2 border-t-0 border-green-200 rounded-b-lg p-4 bg-white">
                             <textarea
                                 value={notaGeneral}
                                 onChange={(e) => setNotaGeneral(e.target.value)}
-                                rows={5}
+                                rows={4}
                                 className="w-full px-4 py-3 border-2 border-green-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                                placeholder="Nota general sobre la auditoría de alto costo. Esta información será incluida en la comunicación al afiliado y en el expediente médico. Incluya cualquier consideración especial, recomendaciones de seguimiento, o aspectos relevantes del caso..."
-                                disabled={auditoria?.botonesDeshabilitados}
+                                placeholder="Observaciones generales sobre la auditoría de alto costo. Incluya consideraciones especiales sobre la justificación clínica, urgencia del tratamiento, o cualquier aspecto relevante para el área de compras..."
                             />
                             <div className="mt-2 flex justify-between items-center">
                                 <div className="text-xs text-green-600">
-                                    💡 Esta nota se incluirá en el email que recibe el afiliado
+                                    💡 Esta información será enviada junto con la solicitud al área de compras
                                 </div>
                                 <div className="text-xs text-gray-500">
                                     Caracteres: {notaGeneral.length}/1000
@@ -910,86 +697,64 @@ const ProcesarAuditoriaAltoCosto = () => {
                         </div>
                     </div>
 
-                    {/* Botones de acción especializados */}
+                    {/* Botones de acción especializados para alto costo */}
                     <div className="flex justify-center space-x-4 pt-6 border-t-2 border-gray-200">
-                        {!auditoria?.botonesDeshabilitados && (
-                            <>
-                                <button
-                                    onClick={handleEnviarMedicoEspecializado}
-                                    disabled={processing}
-                                    className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-all duration-200 shadow-lg"
-                                >
-                                    <PaperAirplaneIcon className="h-4 w-4 mr-2" />
-                                    {processing ? 'Enviando...' : 'Enviar a Médico Auditor Especializado'}
-                                </button>
+                        <button
+                            onClick={handleRechazarAuditoria}
+                            disabled={processing}
+                            className="inline-flex items-center px-6 py-3 border-2 border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-all duration-200"
+                        >
+                            <XMarkIcon className="h-4 w-4 mr-2" />
+                            {processing ? 'Procesando...' : 'Rechazar Auditoría'}
+                        </button>
 
-                                <button
-                                    onClick={handleProcesar}
-                                    disabled={processing || medicamentosSeleccionados === 0}
-                                    className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 transition-all duration-200 shadow-lg"
-                                >
-                                    <CheckCircleIcon className="h-4 w-4 mr-2" />
-                                    {processing ? 'Procesando...' : 'Confirmar Auditoría Alto Costo'}
-                                </button>
-                            </>
-                        )}
+                        <button
+                            onClick={handleEnviarCompras}
+                            disabled={processing || aprobados === 0}
+                            className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-all duration-200 shadow-lg"
+                        >
+                            <ShoppingCartIcon className="h-4 w-4 mr-2" />
+                            {processing ? 'Enviando...' : 'Enviar a Compras'}
+                        </button>
 
                         <button
                             onClick={() => navigate('/alto-costo/pendientes')}
                             className="inline-flex items-center px-6 py-3 border-2 border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200"
                         >
-                            <XMarkIcon className="h-4 w-4 mr-2" />
                             Cancelar
                         </button>
                     </div>
 
-                    {/* Información de estado bloqueado */}
-                    {auditoria?.botonesDeshabilitados && (
-                        <div className="mt-8 bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
-                            <div className="flex">
-                                <ExclamationTriangleIcon className="h-6 w-6 text-yellow-400" />
-                                <div className="ml-3">
-                                    <h3 className="text-sm font-medium text-yellow-800">
-                                        Auditoría de Alto Costo Bloqueada
-                                    </h3>
-                                    <p className="text-sm text-yellow-700 mt-1">
-                                        Esta auditoría de medicamentos de alto costo ha sido enviada al médico auditor especializado 
-                                        y no puede ser modificada. Los medicamentos requieren evaluación adicional debido a su 
-                                        complejidad clínica y alto costo económico.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Información adicional para alto costo */}
+                    {/* Información adicional específica para alto costo */}
                     <div className="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg p-4">
                         <div className="flex">
                             <div className="flex-shrink-0">
-                                <CurrencyDollarIcon className="h-6 w-6 text-blue-500" />
+                                <ShoppingCartIcon className="h-6 w-6 text-blue-500" />
                             </div>
                             <div className="ml-3">
                                 <h3 className="text-sm font-medium text-blue-800">
-                                    Información sobre Medicamentos de Alto Costo
+                                    Proceso de Medicamentos de Alto Costo
                                 </h3>
                                 <div className="mt-2 text-sm text-blue-700">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <h4 className="font-medium">Criterios de Alto Costo:</h4>
+                                            <h4 className="font-medium">Flujo Especializado:</h4>
                                             <ul className="list-disc list-inside text-xs mt-1 space-y-1">
-                                                <li>Costo mensual superior a $50,000</li>
-                                                <li>Medicamentos oncológicos especializados</li>
-                                                <li>Terapias biológicas avanzadas</li>
-                                                <li>Medicamentos huérfanos</li>
+                                                <li>Evaluación médica especializada</li>
+                                                <li>Aprobación por auditor de alto costo</li>
+                                                <li>Envío al área de Compras</li>
+                                                <li>Cotización con proveedores especializados</li>
+                                                <li>Autorización final y entrega</li>
                                             </ul>
                                         </div>
                                         <div>
-                                            <h4 className="font-medium">Requisitos Especiales:</h4>
+                                            <h4 className="font-medium">Información para Compras:</h4>
                                             <ul className="list-disc list-inside text-xs mt-1 space-y-1">
-                                                <li>Justificación médica detallada</li>
-                                                <li>Evaluación por especialista</li>
-                                                <li>Autorización previa obligatoria</li>
-                                                <li>Seguimiento clínico estricto</li>
+                                                <li>Medicamentos aprobados y cantidades</li>
+                                                <li>Porcentajes de cobertura autorizados</li>
+                                                <li>Justificaciones médicas detalladas</li>
+                                                <li>Urgencia del tratamiento</li>
+                                                <li>Datos completos del paciente y médico</li>
                                             </ul>
                                         </div>
                                     </div>
@@ -997,10 +762,23 @@ const ProcesarAuditoriaAltoCosto = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* Demo indicator */}
+                    <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                        <div className="flex items-center justify-center mb-2">
+                            <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500 mr-2" />
+                            <span className="text-sm font-medium text-yellow-800">Demo - Sistema de Auditoría Alto Costo</span>
+                        </div>
+                        <p className="text-xs text-yellow-700">
+                            Esta es una demostración del proceso de auditoría para medicamentos de alto costo.
+                            Los datos mostrados son ficticios y el flujo termina enviando la solicitud al área de Compras
+                            para cotización con proveedores especializados.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
 
-export default ProcesarAuditoriaAltoCosto;
+export default ProcesarAuditoriaAltoCostoDemo;
