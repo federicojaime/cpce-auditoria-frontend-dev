@@ -1,4 +1,4 @@
-// src/components/layout/Sidebar.jsx - ACTUALIZADO CON ROLES
+// src/components/layout/Sidebar.jsx - ACTUALIZADO CON COMPRAS PARA ROL 3
 import React, { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -17,19 +17,23 @@ import {
     ChevronDownIcon,
     ChevronRightIcon,
     CurrencyDollarIcon,
-    ChartBarIcon
+    ChartBarIcon,
+    ShoppingCartIcon,
+    TruckIcon,
+    ClipboardDocumentListIcon
 } from '@heroicons/react/24/outline';
 
 const Sidebar = () => {
-    const [expandedMenus, setExpandedMenus] = useState({ 
-        auditoriaProlongado: true, 
+    const [expandedMenus, setExpandedMenus] = useState({
+        auditoriaProlongado: true,
         auditoriaAltoCosto: true,
-        proveedores: true 
+        proveedores: true,
+        compras: true  // Nuevo menú expandido por defecto
     });
     const location = useLocation();
     const { user, hasRole } = useAuth();
 
-    // ===== CONFIGURACIÓN DE NAVEGACIÓN CON PERMISOS =====
+    // ===== CONFIGURACIÓN DE NAVEGACIÓN CON PERMISOS ACTUALIZADA =====
     const navigationConfig = [
         // Dashboard - Solo para administrativos (rol 5)
         {
@@ -39,7 +43,7 @@ const Sidebar = () => {
             icon: HomeIcon,
             showForRoles: [5] // Solo rol administrativo
         },
-        
+
         // Auditoría Tratamiento Prolongado - Para rol 2 y administrativos (rol 5)
         {
             id: 'auditoriaProlongado',
@@ -79,7 +83,7 @@ const Sidebar = () => {
                 }
             ]
         },
-        
+
         // Auditoría Alto Costo - Para rol 1 y administrativos (rol 5)
         {
             id: 'auditoriaAltoCosto',
@@ -116,6 +120,40 @@ const Sidebar = () => {
                     name: 'Descargar (Excel)',
                     href: '/alto-costo/descargar-excel',
                     icon: DocumentArrowDownIcon
+                }
+            ]
+        },
+
+        // 🔥 NUEVO: COMPRAS - Para rol 3 y administrativos (rol 5)
+        {
+            id: 'compras',
+            name: 'Compras & Presupuestos',
+            icon: ShoppingCartIcon,
+            showForRoles: [3, 5], // Rol 3 (estadísticas/reportes/compras) y rol 5 (administrativo)
+            children: [
+                {
+                    id: 'solicitar-presupuestos',
+                    name: 'Solicitar Presupuestos',
+                    href: '/solicitar-presupuestos',
+                    icon: ClipboardDocumentListIcon
+                },
+                {
+                    id: 'seguimiento-presupuestos',
+                    name: 'Seguimiento',
+                    href: '/seguimiento-presupuestos',
+                    icon: TruckIcon
+                },
+                {
+                    id: 'gestion-ordenes',
+                    name: 'Gestión de Órdenes',
+                    href: '/gestion-ordenes',
+                    icon: DocumentCheckIcon
+                },
+                {
+                    id: 'reportes-compras',
+                    name: 'Reportes de Compras',
+                    href: '/reportes-compras',
+                    icon: ChartBarIcon
                 }
             ]
         },
@@ -172,7 +210,7 @@ const Sidebar = () => {
         return navigationConfig.filter(item => {
             // Si no tiene restricciones de rol, mostrar para todos
             if (!item.showForRoles) return true;
-            
+
             // Verificar si el rol del usuario está en la lista de roles permitidos
             return item.showForRoles.includes(user?.rol);
         });
@@ -213,7 +251,7 @@ const Sidebar = () => {
         const roleNames = {
             1: 'Auditor Alto Costo',
             2: 'Auditor Trat. Prolongado',
-            3: 'Estadísticas y Reportes',
+            3: 'Estadísticas y Compras',  // 🔥 ACTUALIZADO
             5: 'Administrativo'
         };
         return roleNames[rol] || 'Usuario';
@@ -228,14 +266,13 @@ const Sidebar = () => {
                 <img
                     src={cpceLogo}
                     alt="CPCE Córdoba"
-                    className="h-10 w-18 object-contain"
+                    className="h-10 w-18 object-contain drop-shadow-[0_0_10px_rgba(0,0,0,0.9)] drop-shadow-[0_0_3px_rgba(0,0,0,1)]"
                     onError={(e) => {
                         e.target.style.display = 'none';
                         e.target.nextSibling.style.display = 'flex';
                     }}
                 />
             </div>
-
             {/* Información del usuario */}
             <div className="px-4 py-4 border-b border-gray-200">
                 <div className="flex items-center">
@@ -274,7 +311,7 @@ const Sidebar = () => {
             {/* Navegación */}
             <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
                 <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-3">
-                    MENÚ {user?.rol === 1 && '(ALTO COSTO)'} {user?.rol === 2 && '(TRAT. PROLONGADO)'} {user?.rol === 3 && '(REPORTES)'}
+                    MENÚ {user?.rol === 1 && '(ALTO COSTO)'} {user?.rol === 2 && '(TRAT. PROLONGADO)'} {user?.rol === 3 && '(REPORTES & COMPRAS)'}
                 </div>
 
                 {filteredNavigation.length === 0 ? (
@@ -293,8 +330,8 @@ const Sidebar = () => {
                                     <div>
                                         <button
                                             className={`${isItemActive
-                                                    ? 'bg-blue-50 border-r-2 border-blue-500 text-blue-700'
-                                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                ? 'bg-blue-50 border-r-2 border-blue-500 text-blue-700'
+                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                                 } group w-full flex items-center pl-2 pr-1 py-2 text-left text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200`}
                                             onClick={() => toggleMenu(item.id)}
                                         >
@@ -315,8 +352,8 @@ const Sidebar = () => {
                                                     key={child.id}
                                                     to={child.href}
                                                     className={`${isActive(child.href)
-                                                            ? 'bg-blue-100 text-blue-700 border-r-2 border-blue-500'
-                                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                        ? 'bg-blue-100 text-blue-700 border-r-2 border-blue-500'
+                                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                                         } group flex items-center pl-11 pr-2 py-2 text-sm font-medium rounded-md transition-all duration-200`}
                                                 >
                                                     <child.icon className="mr-3 h-4 w-4 flex-shrink-0" />
@@ -330,8 +367,8 @@ const Sidebar = () => {
                                     <Link
                                         to={item.href}
                                         className={`${isItemActive
-                                                ? 'bg-blue-50 border-r-2 border-blue-500 text-blue-700'
-                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                            ? 'bg-blue-50 border-r-2 border-blue-500 text-blue-700'
+                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                             } group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-all duration-200`}
                                     >
                                         <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />

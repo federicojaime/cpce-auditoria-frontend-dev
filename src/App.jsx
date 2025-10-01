@@ -10,6 +10,11 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './styles/toast.css';
 
+import SolicitarPresupuestos from './pages/SolicitarPresupuestos';
+import SeguimientoPresupuestos from './pages/SeguimientoPresupuestos';
+import GestionOrdenes from './pages/GestionOrdenes';
+import ReportesCompras from './pages/ReportesCompras';
+
 // Páginas de Auditorías Tratamiento Prolongado (Rol 2 y 5)
 import Dashboard from './pages/Dashboard';
 import AuditoriasPendientes from './pages/AuditoriasPendientes';
@@ -107,7 +112,7 @@ function AppContent() {
         />
 
         {/* ===== RUTAS AUDITORÍAS TRATAMIENTO PROLONGADO (Rol 2 y 5) ===== */}
-        
+
         <Route
           path="/pendientes"
           element={
@@ -215,6 +220,50 @@ function AppContent() {
             <GeneralProtectedRoute>
               <ProtectedRoute allowedRoles={[1, 5]}>
                 <AltoCostoPendientes />
+              </ProtectedRoute>
+            </GeneralProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/solicitar-presupuestos"
+          element={
+            <GeneralProtectedRoute>
+              <ProtectedRoute allowedRoles={[3, 5]}>
+                <SolicitarPresupuestos />
+              </ProtectedRoute>
+            </GeneralProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/seguimiento-presupuestos"
+          element={
+            <GeneralProtectedRoute>
+              <ProtectedRoute allowedRoles={[3, 5]}>
+                <SeguimientoPresupuestos />
+              </ProtectedRoute>
+            </GeneralProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/gestion-ordenes"
+          element={
+            <GeneralProtectedRoute>
+              <ProtectedRoute allowedRoles={[3, 5]}>
+                <GestionOrdenes />
+              </ProtectedRoute>
+            </GeneralProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reportes-compras"
+          element={
+            <GeneralProtectedRoute>
+              <ProtectedRoute allowedRoles={[3, 5]}>
+                <ReportesCompras />
               </ProtectedRoute>
             </GeneralProtectedRoute>
           }

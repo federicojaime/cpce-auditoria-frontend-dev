@@ -36,7 +36,7 @@ const Footer = () => {
         year: new Date().getFullYear(),
         company: 'Altaluna',
         version: '2.0.1',
-        lastUpdate: 'Enero 2025'
+        lastUpdate: 'Septiembre 2025'
     };
 
     return (

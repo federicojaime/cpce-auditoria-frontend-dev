@@ -1,5 +1,5 @@
 // Importar imágenes desde las carpetas correctas
-import cpceLogo from './logos/logo-dark.png';
+import cpceLogo from './logos/logocmpc-blanci.png';
 import loginBackground from './images/auth-bg.jpg';
 
 // Placeholder para más assets si se necesitan

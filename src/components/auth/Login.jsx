@@ -118,6 +118,7 @@ const Login = () => {
                 src={cpceLogo} 
                 alt="CPCE Córdoba" 
                 className="mx-auto h-20 w-auto"
+                style={{filter: "drop-shadow(0 0 3px #000) drop-shadow(0 0 6px #000)"}}
                 onError={(e) => {
                   e.target.style.display = 'none';
                   e.target.nextSibling.style.display = 'flex';
@@ -125,7 +126,7 @@ const Login = () => {
               />
               {/* Logo fallback */}
               <div 
-                className="mx-auto h-20 w-20 bg-blue-600 rounded-lg items-center justify-center text-white font-bold text-lg"
+                className="mx-auto h-20 w-20 bg-blue-600 rounded-lg items-center justify-center text-white font-bold text-lg drop-shadow-lg"
                 style={{ display: 'none' }}
               >
                 CPCE
