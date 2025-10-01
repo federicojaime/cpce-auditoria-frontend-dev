@@ -29,7 +29,7 @@ const Login = () => {
     if (isAuthenticated) {
       sessionStorage.removeItem('login_error');
       setLocalError('');
-      
+
       // Redirigir según el rol del usuario
       const defaultRoute = getUserDefaultRoute();
       console.log('Login - Redirigiendo a:', defaultRoute);
@@ -39,7 +39,7 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!username.trim() || !password) {
       const error = 'Por favor complete todos los campos';
       setLocalError(error);
@@ -50,14 +50,14 @@ const Login = () => {
     setLoading(true);
     setLocalError('');
     sessionStorage.removeItem('login_error');
-    
+
     try {
       const result = await login(username.trim(), password);
-      
+
       if (!result.success) {
         const error = result.message || 'Usuario y/o contraseña incorrectos';
         console.log('❌ Login fallido:', error);
-        
+
         setLocalError(error);
         sessionStorage.setItem('login_error', error);
         setPassword('');
@@ -87,7 +87,7 @@ const Login = () => {
     } else {
       setPassword(value);
     }
-    
+
     // Limpiar error solo si el usuario está escribiendo
     if (localError && value.length > 0) {
       clearError();
@@ -95,7 +95,7 @@ const Login = () => {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen flex items-center justify-center relative"
       style={{
         backgroundImage: `url(${loginBackground})`,
@@ -106,26 +106,26 @@ const Login = () => {
     >
       {/* Overlay oscuro */}
       <div className="absolute inset-0 bg-black bg-opacity-50"></div>
-      
+
       {/* Contenedor del formulario */}
       <div className="relative z-10 w-full max-w-md mx-4">
         <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
-          
+
           {/* Header con logo */}
           <div className="px-8 pt-8 pb-6 text-center bg-white">
             <div className="mb-4">
-              <img 
-                src={cpceLogo} 
-                alt="CPCE Córdoba" 
+              <img
+                src={cpceLogo}
+                alt="CPCE Córdoba"
                 className="mx-auto h-20 w-auto"
-                style={{filter: "drop-shadow(0 0 3px #000) drop-shadow(0 0 6px #000)"}}
+                style={{ filter: "drop-shadow(0 0 3px #000) drop-shadow(0 0 6px #000)" }}
                 onError={(e) => {
                   e.target.style.display = 'none';
                   e.target.nextSibling.style.display = 'flex';
                 }}
               />
               {/* Logo fallback */}
-              <div 
+              <div
                 className="mx-auto h-20 w-20 bg-blue-600 rounded-lg items-center justify-center text-white font-bold text-lg drop-shadow-lg"
                 style={{ display: 'none' }}
               >
@@ -170,7 +170,7 @@ const Login = () => {
           {/* Formulario */}
           <div className="px-8 pb-8">
             <form onSubmit={handleSubmit} className="space-y-4">
-              
+
               {/* Campo Usuario */}
               <div>
                 <input
@@ -240,7 +240,7 @@ const Login = () => {
               <div className="text-center pt-4">
                 <button
                   type="button"
-                  onClick={() => alert('Funcionalidad próximamente')}
+                  onClick={() => window.open('https://wa.link/qxkuol', '_blank')}
                   className="text-sm text-gray-600 hover:text-teal-600 transition duration-200"
                   disabled={loading}
                 >

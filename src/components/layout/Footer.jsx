@@ -13,7 +13,7 @@ const Footer = () => {
         {
             id: 'soporte',
             name: 'Soporte Técnico',
-            href: 'mailto:soporte@cpce.org.ar',
+            href: 'https://wa.link/qxkuol',
             external: true
         },
         {
