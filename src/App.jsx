@@ -2,6 +2,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { NotificationsProvider } from './context/NotificationsContext';
 import Layout from './components/layout/Layout';
 import Login from './components/auth/Login';
 import Loading from './components/common/Loading';
@@ -44,6 +45,9 @@ import ProveedorForm from './pages/ProveedorForm';
 import ContactosProveedor from './pages/ContactosProveedor';
 
 import Estadisticas from './pages/Estadisticas';
+import Perfil from './pages/Perfil';
+import Configuracion from './pages/Configuracion';
+import GestionUsuariosPrueba from './pages/GestionUsuariosPrueba';
 
 // Componente para rutas protegidas generales
 const GeneralProtectedRoute = ({ children }) => {
@@ -405,15 +409,10 @@ function AppContent() {
           }
         />
 
+        {/* Redirección: /proveedores/contactos sin ID -> /proveedores */}
         <Route
           path="/proveedores/contactos"
-          element={
-            <GeneralProtectedRoute>
-              <ProtectedRoute allowedRoles={[3, 5]}>
-                <ContactosProveedor />
-              </ProtectedRoute>
-            </GeneralProtectedRoute>
-          }
+          element={<Navigate to="/proveedores" replace />}
         />
 
         <Route
@@ -444,10 +443,7 @@ function AppContent() {
           path="/perfil"
           element={
             <GeneralProtectedRoute>
-              <div className="p-6">
-                <h1 className="text-2xl font-bold text-gray-900">Perfil de Usuario</h1>
-                <p className="mt-2 text-gray-600">Funcionalidad en desarrollo</p>
-              </div>
+              <Perfil />
             </GeneralProtectedRoute>
           }
         />
@@ -456,10 +452,18 @@ function AppContent() {
           path="/configuracion"
           element={
             <GeneralProtectedRoute>
-              <div className="p-6">
-                <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
-                <p className="mt-2 text-gray-600">Funcionalidad en desarrollo</p>
-              </div>
+              <Configuracion />
+            </GeneralProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/gestion-usuarios-prueba"
+          element={
+            <GeneralProtectedRoute>
+              <ProtectedRoute allowedRoles={[5]}>
+                <GestionUsuariosPrueba />
+              </ProtectedRoute>
             </GeneralProtectedRoute>
           }
         />
@@ -552,11 +556,13 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div className="App">
-          <AppContent />
-        </div>
-      </Router>
+      <NotificationsProvider>
+        <Router>
+          <div className="App">
+            <AppContent />
+          </div>
+        </Router>
+      </NotificationsProvider>
     </AuthProvider>
   );
 }

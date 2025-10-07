@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { auditoriasService } from '../services/auditoriasService';
 import TableWithFilters from '../components/common/TableWithFilters';
 import { toast } from 'react-toastify';
 import {
@@ -447,6 +448,19 @@ const AuditoriasHistoricas = () => {
 
     const handleExportExcel = async () => {
         try {
+            setError('');
+
+            // Validar que hay datos para exportar
+            if (!auditorias || auditorias.length === 0) {
+                const errorMsg = 'No hay datos para exportar';
+                setError(errorMsg);
+                toast.error(errorMsg, {
+                    position: "top-right",
+                    autoClose: 3000
+                });
+                return;
+            }
+
             // Toast de inicio
             const toastId = toast.info('Generando archivo Excel...', {
                 position: "top-right",
@@ -457,30 +471,19 @@ const AuditoriasHistoricas = () => {
                 draggable: false,
             });
 
-            const queryParams = new URLSearchParams();
-            if (searchTerm) queryParams.append('search', searchTerm);
-            
-            const url = `/auditorias/historicas/excel?${queryParams.toString()}`;
-            const response = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('cpce_token')}`
-                }
+            console.log('Exportando auditorías históricas:', auditorias.length);
+
+            // Usar exportarExcelConDatos para exportar los datos actuales
+            const result = await auditoriasService.exportarExcelConDatos(auditorias, {
+                tipo: 'historicas',
+                fecha: new Date().toISOString().split('T')[0],
+                searchTerm: searchTerm || null
             });
 
             // Cerrar toast de carga
             toast.dismiss(toastId);
 
-            if (response.ok) {
-                const blob = await response.blob();
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = downloadUrl;
-                link.download = `auditorias-historicas-${new Date().toISOString().slice(0, 10)}.xlsx`;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                window.URL.revokeObjectURL(downloadUrl);
-
+            if (result.success) {
                 // Toast de éxito
                 toast.success('Archivo Excel descargado correctamente', {
                     position: "top-right",
@@ -491,9 +494,7 @@ const AuditoriasHistoricas = () => {
                     draggable: true,
                 });
             } else {
-                const result = await response.json();
-                setError(result.message || 'Error al generar el archivo Excel');
-                
+                setError(result.message);
                 toast.error(result.message || 'Error al generar el archivo Excel', {
                     position: "top-right",
                     autoClose: 5000,
@@ -505,9 +506,10 @@ const AuditoriasHistoricas = () => {
             }
         } catch (error) {
             console.error('Error exportando Excel:', error);
-            setError('Error al generar el archivo Excel');
-            
-            toast.error('Error al generar el archivo Excel', {
+            const errorMsg = 'Error al generar el archivo Excel';
+            setError(errorMsg);
+
+            toast.error(errorMsg, {
                 position: "top-right",
                 autoClose: 5000,
                 hideProgressBar: false,

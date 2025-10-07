@@ -59,12 +59,18 @@ const DescargarExcel = () => {
       setLoading(true);
       setError('');
       setSuccess('');
-      
+
+      console.log('📥 Iniciando descarga de Excel para:', selectedMonth);
+
       const result = await auditoriasService.generarExcel(selectedMonth);
-      
+
+      console.log('📊 Resultado de descarga:', result);
+
       if (result.success) {
-        setSuccess(`Archivo Excel descargado correctamente para ${selectedMonth}`);
-        
+        const successMsg = `Archivo Excel descargado correctamente para ${selectedMonth}`;
+        setSuccess(successMsg);
+        console.log('✅', successMsg);
+
         // Agregar al historial
         const newDownload = {
           id: Date.now(),
@@ -72,14 +78,16 @@ const DescargarExcel = () => {
           date: new Date().toISOString(),
           status: 'success'
         };
-        
+
         setDownloadHistory(prev => [newDownload, ...prev.slice(0, 4)]); // Mantener últimos 5
       } else {
-        setError(result.message);
+        console.error('❌ Error en descarga:', result.message);
+        setError(result.message || 'Error al generar el archivo Excel');
       }
     } catch (error) {
-      console.error('Error descargando Excel:', error);
-      setError('Error inesperado al generar el archivo Excel');
+      console.error('💥 Error inesperado descargando Excel:', error);
+      console.error('Stack:', error.stack);
+      setError(error.message || 'Error inesperado al generar el archivo Excel');
     } finally {
       setLoading(false);
     }

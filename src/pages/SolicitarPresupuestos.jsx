@@ -4,6 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import Breadcrumb from '../components/common/Breadcrumb';
 import Loading from '../components/common/Loading';
 import ErrorMessage from '../components/common/ErrorMessage';
+import * as presupuestosService from '../services/presupuestosService';
+import * as proveedoresService from '../services/proveedoresService';
+import { toast } from 'react-toastify';
 import {
     ShoppingCartIcon,
     BuildingOffice2Icon,
@@ -34,6 +37,7 @@ const SolicitarPresupuestos = () => {
     const [auditoriasSeleccionadas, setAuditoriasSeleccionadas] = useState(new Set());
     const [proveedoresSeleccionados, setProveedoresSeleccionados] = useState(new Set());
     const [mostrarDetalle, setMostrarDetalle] = useState(null);
+    const [mostrarModalConfirmacion, setMostrarModalConfirmacion] = useState(false);
 
     // Breadcrumb configuration
     const breadcrumbItems = [
@@ -41,147 +45,68 @@ const SolicitarPresupuestos = () => {
         { name: 'Solicitar Presupuestos', href: '/solicitar-presupuestos', current: true }
     ];
 
-    // Datos demo de auditorías aprobadas
-    const auditoriasDemo = [
-        {
-            id: 'AC-2024-001',
-            fechaAprobacion: '2025-01-15',
-            auditor: 'Dr. José Garrido',
-            paciente: {
-                nombre: 'María Elena González',
-                dni: '32456789',
-                obraSocial: 'CPCE Salud'
-            },
-            medicamentos: [
-                {
-                    id: 1,
-                    nombre: 'KEYTRUDA 100MG',
-                    cantidad: 6,
-                    costoEstimado: 245000,
-                    categoria: 'Inmunoterapia Oncológica'
-                },
-                {
-                    id: 2,
-                    nombre: 'REVLIMID 25MG',
-                    cantidad: 6,
-                    costoEstimado: 185000,
-                    categoria: 'Inmunomodulador'
-                }
-            ],
-            costoTotal: 430000,
-            prioridad: 'ALTA',
-            estado: 'APROBADO',
-            observaciones: 'Tratamiento oncológico urgente. Paciente con buena respuesta previa.'
-        },
-        {
-            id: 'AC-2024-002',
-            fechaAprobacion: '2025-01-14',
-            auditor: 'Dr. José Garrido',
-            paciente: {
-                nombre: 'Carlos Roberto Mendez',
-                dni: '28765432',
-                obraSocial: 'CPCE Salud'
-            },
-            medicamentos: [
-                {
-                    id: 3,
-                    nombre: 'HERCEPTIN 440MG',
-                    cantidad: 8,
-                    costoEstimado: 320000,
-                    categoria: 'Anticuerpo Monoclonal'
-                }
-            ],
-            costoTotal: 320000,
-            prioridad: 'MEDIA',
-            estado: 'APROBADO',
-            observaciones: 'Tratamiento de mantenimiento. Sin urgencia especial.'
-        },
-        {
-            id: 'AC-2024-003',
-            fechaAprobacion: '2025-01-13',
-            auditor: 'Dr. José Garrido',
-            paciente: {
-                nombre: 'Ana Lucía Torres',
-                dni: '35123456',
-                obraSocial: 'CPCE Salud'
-            },
-            medicamentos: [
-                {
-                    id: 4,
-                    nombre: 'RITUXIMAB 500MG',
-                    cantidad: 4,
-                    costoEstimado: 180000,
-                    categoria: 'Anticuerpo Monoclonal'
-                },
-                {
-                    id: 5,
-                    nombre: 'BEVACIZUMAB 400MG',
-                    cantidad: 6,
-                    costoEstimado: 220000,
-                    categoria: 'Antiangiogénico'
-                }
-            ],
-            costoTotal: 400000,
-            prioridad: 'ALTA',
-            estado: 'APROBADO',
-            observaciones: 'Combinación terapéutica. Requiere coordinación de entregas.'
-        }
-    ];
-
-    // Datos demo de proveedores
-    const proveedoresDemo = [
-        {
-            id: 1,
-            nombre: 'FARMACORP S.A.',
-            especialidad: 'Oncología',
-            contacto: 'Lic. Patricia Vega',
-            email: 'pvega@farmacorp.com.ar',
-            telefono: '351-4567890',
-            activo: true,
-            tiempoRespuesta: '24-48hs'
-        },
-        {
-            id: 2,
-            nombre: 'ONCOMED DISTRIBUCIONES',
-            especialidad: 'Alto Costo Oncológico',
-            contacto: 'Dr. Miguel Torres',
-            email: 'm.torres@oncomed.com.ar',
-            telefono: '351-7891234',
-            activo: true,
-            tiempoRespuesta: '12-24hs'
-        },
-        {
-            id: 3,
-            nombre: 'GLOBAL PHARMA SOLUTIONS',
-            especialidad: 'Medicamentos Huérfanos',
-            contacto: 'Ing. Carlos Ruiz',
-            email: 'c.ruiz@globalpharma.com.ar',
-            telefono: '351-3456789',
-            activo: true,
-            tiempoRespuesta: '48-72hs'
-        },
-        {
-            id: 4,
-            nombre: 'BIOTECH MEDICAMENTOS',
-            especialidad: 'Biológicos y Biosimilares',
-            contacto: 'Dra. Ana Morales',
-            email: 'a.morales@biotech.com.ar',
-            telefono: '351-9876543',
-            activo: true,
-            tiempoRespuesta: '24-48hs'
-        }
-    ];
-
-    // Simular carga de datos
+    // Cargar datos desde la API
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setAuditorias(auditoriasDemo);
-            setProveedores(proveedoresDemo);
-            setLoading(false);
-        }, 1000);
-
-        return () => clearTimeout(timer);
+        cargarDatos();
     }, []);
+
+    const cargarDatos = async () => {
+        try {
+            setLoading(true);
+            setError('');
+
+            // Cargar auditorías aprobadas y proveedores en paralelo
+            const [auditoriasResponse, proveedoresResponse] = await Promise.all([
+                presupuestosService.getAuditoriasAprobadas(),
+                proveedoresService.getProveedores({ activo: true })
+            ]);
+
+            // Procesar auditorías - mapear campos del API al formato del componente
+            if (auditoriasResponse.success && auditoriasResponse.data) {
+                const auditoriasFormateadas = auditoriasResponse.data.map(auditoria => ({
+                    id: auditoria.id || auditoria.idauditoria,
+                    paciente: {
+                        nombre: `${auditoria.apellido || ''}, ${auditoria.nombre || ''}`.trim(),
+                        dni: auditoria.dni || 'N/A'
+                    },
+                    auditor: auditoria.medico || 'No asignado',
+                    fechaAprobacion: auditoria.fecha ? new Date(auditoria.fecha).toLocaleDateString('es-AR') : 'N/A',
+                    medicamentos: Array(auditoria.renglones || 1).fill({ nombre: 'Medicamento de alto costo', costoEstimado: 0 }),
+                    costoTotal: auditoria.costo_estimado || 0,
+                    prioridad: auditoria.prioridad || 'MEDIA',
+                    observaciones: auditoria.observaciones || '',
+                    meses: auditoria.meses || 0,
+                    renglones: auditoria.renglones || 0
+                }));
+                setAuditorias(auditoriasFormateadas);
+            }
+
+            // Procesar proveedores - mapear campos del API al formato del componente
+            if (proveedoresResponse.success && proveedoresResponse.data) {
+                const proveedoresFormateados = proveedoresResponse.data.map(proveedor => ({
+                    id: proveedor.id_proveedor || proveedor.id,
+                    id_proveedor: proveedor.id_proveedor || proveedor.id,
+                    razon_social: proveedor.razon_social || 'Sin nombre',
+                    nombre: proveedor.razon_social || 'Sin nombre',
+                    tipo_proveedor: proveedor.tipo_proveedor || 'Proveedor general',
+                    especialidad: proveedor.tipo_proveedor || 'Proveedor general',
+                    email: proveedor.email_general || proveedor.email || 'Sin email',
+                    telefono: proveedor.telefono_general || proveedor.telefono || 'Sin teléfono',
+                    direccion: proveedor.direccion || 'Sin dirección',
+                    cuit: proveedor.cuit || 'Sin CUIT',
+                    activo: proveedor.activo || 1
+                }));
+                setProveedores(proveedoresFormateados);
+            }
+
+        } catch (error) {
+            console.error('Error cargando datos:', error);
+            setError(error.message || 'Error al cargar los datos');
+            toast.error('Error al cargar auditorías y proveedores');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Manejar selección de auditorías
     const handleAuditoriaSelect = (auditoriaId) => {
@@ -219,43 +144,87 @@ const SolicitarPresupuestos = () => {
         if (proveedoresSeleccionados.size === proveedores.length) {
             setProveedoresSeleccionados(new Set());
         } else {
-            setProveedoresSeleccionados(new Set(proveedores.map(p => p.id)));
+            setProveedoresSeleccionados(new Set(proveedores.map(p => p.id_proveedor || p.id)));
         }
     };
 
-    // Enviar solicitudes en lote
-    const handleEnviarSolicitudes = async () => {
+    // Mostrar modal de confirmación
+    const handleMostrarConfirmacion = () => {
         if (auditoriasSeleccionadas.size === 0) {
             setError('Debe seleccionar al menos una auditoría');
+            toast.error('Debe seleccionar al menos una auditoría');
             return;
         }
 
         if (proveedoresSeleccionados.size === 0) {
             setError('Debe seleccionar al menos un proveedor');
+            toast.error('Debe seleccionar al menos un proveedor');
             return;
         }
 
-        const confirmMessage = `¿Está seguro de enviar ${auditoriasSeleccionadas.size} auditoría(s) a ${proveedoresSeleccionados.size} proveedor(es)?`;
-        
-        if (!window.confirm(confirmMessage)) {
-            return;
-        }
+        setMostrarModalConfirmacion(true);
+    };
+
+    // Enviar solicitudes en lote
+    const handleEnviarSolicitudes = async () => {
+        setMostrarModalConfirmacion(false);
 
         try {
             setSending(true);
             setError('');
 
-            // Simular envío
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Obtener auditorías seleccionadas
+            const auditoriasArray = Array.from(auditoriasSeleccionadas)
+                .map(id => auditorias.find(a => a.id === id))
+                .filter(Boolean);
 
-            setSuccess(`✅ Solicitudes enviadas exitosamente: ${auditoriasSeleccionadas.size} auditorías a ${proveedoresSeleccionados.size} proveedores`);
-            
-            // Limpiar selecciones
-            setAuditoriasSeleccionadas(new Set());
-            setProveedoresSeleccionados(new Set());
+            // Preparar medicamentos de todas las auditorías
+            const medicamentos = [];
+            auditoriasArray.forEach(auditoria => {
+                if (auditoria.medicamentos && Array.isArray(auditoria.medicamentos)) {
+                    auditoria.medicamentos.forEach(med => {
+                        medicamentos.push({
+                            nombre: med.nombre,
+                            cantidad: med.cantidad,
+                            unidad: 'unidad'
+                        });
+                    });
+                }
+            });
+
+            // Preparar datos para la solicitud
+            const datos = {
+                descripcion: `Solicitud masiva para ${auditoriasArray.length} auditoría(s) de alto costo`,
+                id_auditoria_asociada: auditoriasArray[0]?.id || null,
+                proveedores: Array.from(proveedoresSeleccionados),
+                medicamentos: medicamentos,
+                fecha_limite_respuesta: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 días
+                observaciones: `Incluye auditorías: ${Array.from(auditoriasSeleccionadas).join(', ')}`
+            };
+
+            // Enviar solicitud
+            const response = await presupuestosService.solicitarPresupuesto(datos);
+
+            if (response.success) {
+                setSuccess(`✅ Solicitud creada exitosamente: ${response.data.numero_solicitud}`);
+                toast.success(`Solicitud ${response.data.numero_solicitud} enviada a ${proveedoresSeleccionados.size} proveedores`, {
+                    autoClose: 5000
+                });
+
+                // Limpiar selecciones
+                setAuditoriasSeleccionadas(new Set());
+                setProveedoresSeleccionados(new Set());
+
+                // Recargar datos
+                setTimeout(() => {
+                    cargarDatos();
+                }, 2000);
+            }
 
         } catch (error) {
-            setError('Error al enviar las solicitudes de presupuesto');
+            console.error('Error al enviar solicitud:', error);
+            setError(error.message || 'Error al enviar las solicitudes de presupuesto');
+            toast.error(error.message || 'Error al enviar las solicitudes');
         } finally {
             setSending(false);
         }
@@ -266,10 +235,10 @@ const SolicitarPresupuestos = () => {
         const auditoriasArray = Array.from(auditoriasSeleccionadas)
             .map(id => auditorias.find(a => a.id === id))
             .filter(Boolean);
-        
-        const costoTotal = auditoriasArray.reduce((total, auditoria) => total + auditoria.costoTotal, 0);
-        const medicamentosTotal = auditoriasArray.reduce((total, auditoria) => 
-            total + auditoria.medicamentos.length, 0);
+
+        const costoTotal = auditoriasArray.reduce((total, auditoria) => total + (auditoria.costoTotal || 0), 0);
+        const medicamentosTotal = auditoriasArray.reduce((total, auditoria) =>
+            total + (auditoria.medicamentos?.length || 0), 0);
 
         return { costoTotal, medicamentosTotal, auditoriasCount: auditoriasArray.length };
     };
@@ -303,7 +272,7 @@ const SolicitarPresupuestos = () => {
                             </p>
                         </div>
                         <button
-                            onClick={() => window.location.reload()}
+                            onClick={cargarDatos}
                             className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                         >
                             <ArrowPathIcon className="h-4 w-4 mr-2" />
@@ -355,7 +324,7 @@ const SolicitarPresupuestos = () => {
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
+
                 {/* Auditorías Aprobadas */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                     <div className="px-6 py-4 border-b border-gray-200">
@@ -374,87 +343,92 @@ const SolicitarPresupuestos = () => {
                     </div>
 
                     <div className="p-4 space-y-4">
-                        {auditorias.map((auditoria) => {
-                            const isSelected = auditoriasSeleccionadas.has(auditoria.id);
-                            
-                            return (
-                                <div
-                                    key={auditoria.id}
-                                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                                        isSelected 
-                                            ? 'border-blue-500 bg-blue-50' 
+                        {auditorias.length === 0 ? (
+                            <div className="text-center py-8">
+                                <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
+                                <p className="mt-2 text-sm text-gray-600">No hay auditorías aprobadas pendientes</p>
+                            </div>
+                        ) : (
+                            auditorias.map((auditoria) => {
+                                const isSelected = auditoriasSeleccionadas.has(auditoria.id);
+
+                                return (
+                                    <div
+                                        key={auditoria.id}
+                                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${isSelected
+                                            ? 'border-blue-500 bg-blue-50'
                                             : 'border-gray-200 hover:border-gray-300'
-                                    }`}
-                                    onClick={() => handleAuditoriaSelect(auditoria.id)}
-                                >
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div>
-                                            <h3 className="font-semibold text-gray-900">#{auditoria.id}</h3>
-                                            <p className="text-sm text-gray-600">{auditoria.paciente.nombre}</p>
-                                            <p className="text-xs text-gray-500">DNI: {auditoria.paciente.dni}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-lg font-bold text-orange-600">
-                                                ${auditoria.costoTotal.toLocaleString()}
+                                            }`}
+                                        onClick={() => handleAuditoriaSelect(auditoria.id)}
+                                    >
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div>
+                                                <h3 className="font-semibold text-gray-900">#{auditoria.id}</h3>
+                                                <p className="text-sm text-gray-600">{auditoria.paciente?.nombre}</p>
+                                                <p className="text-xs text-gray-500">DNI: {auditoria.paciente?.dni}</p>
                                             </div>
-                                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                                auditoria.prioridad === 'ALTA' 
+                                            <div className="text-right">
+                                                <div className="text-lg font-bold text-orange-600">
+                                                    ${(auditoria.costoTotal || 0).toLocaleString()}
+                                                </div>
+                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${auditoria.prioridad === 'ALTA'
                                                     ? 'bg-red-100 text-red-800'
                                                     : 'bg-yellow-100 text-yellow-800'
-                                            }`}>
-                                                {auditoria.prioridad}
-                                            </span>
+                                                    }`}>
+                                                    {auditoria.prioridad}
+                                                </span>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <div className="space-y-2">
-                                        <div className="text-sm">
-                                            <strong>Auditor:</strong> {auditoria.auditor}
+                                        <div className="space-y-2">
+                                            <div className="text-sm">
+                                                <strong>Auditor:</strong> {auditoria.auditor}
+                                            </div>
+                                            <div className="text-sm">
+                                                <strong>Fecha:</strong> {auditoria.fechaAprobacion}
+                                            </div>
+                                            <div className="text-sm">
+                                                <strong>Medicamentos:</strong> {auditoria.medicamentos?.length || 0}
+                                            </div>
                                         </div>
-                                        <div className="text-sm">
-                                            <strong>Fecha:</strong> {auditoria.fechaAprobacion}
-                                        </div>
-                                        <div className="text-sm">
-                                            <strong>Medicamentos:</strong> {auditoria.medicamentos.length}
-                                        </div>
-                                    </div>
 
-                                    {mostrarDetalle === auditoria.id && (
-                                        <div className="mt-4 pt-4 border-t border-gray-200">
-                                            <h4 className="font-medium mb-2">Medicamentos:</h4>
-                                            {auditoria.medicamentos.map((med) => (
-                                                <div key={med.id} className="flex justify-between text-sm mb-1">
-                                                    <span>{med.nombre}</span>
-                                                    <span>${med.costoEstimado.toLocaleString()}</span>
-                                                </div>
-                                            ))}
-                                            {auditoria.observaciones && (
-                                                <div className="mt-2">
-                                                    <strong className="text-sm">Observaciones:</strong>
-                                                    <p className="text-sm text-gray-600">{auditoria.observaciones}</p>
-                                                </div>
+                                        {mostrarDetalle === auditoria.id && auditoria.medicamentos && (
+                                            <div className="mt-4 pt-4 border-t border-gray-200">
+                                                <h4 className="font-medium mb-2">Medicamentos:</h4>
+                                                {auditoria.medicamentos.map((med, idx) => (
+                                                    <div key={idx} className="flex justify-between text-sm mb-1">
+                                                        <span>{med.nombre}</span>
+                                                        <span>${(med.costoEstimado || 0).toLocaleString()}</span>
+                                                    </div>
+                                                ))}
+                                                {auditoria.observaciones && (
+                                                    <div className="mt-2">
+                                                        <strong className="text-sm">Observaciones:</strong>
+                                                        <p className="text-sm text-gray-600">{auditoria.observaciones}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        <div className="mt-3 flex justify-between items-center">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setMostrarDetalle(mostrarDetalle === auditoria.id ? null : auditoria.id);
+                                                }}
+                                                className="text-xs text-blue-600 hover:text-blue-800"
+                                            >
+                                                {mostrarDetalle === auditoria.id ? 'Ocultar' : 'Ver'} Detalle
+                                            </button>
+
+                                            {isSelected && (
+                                                <CheckCircleIcon className="h-5 w-5 text-blue-600" />
                                             )}
                                         </div>
-                                    )}
-
-                                    <div className="mt-3 flex justify-between items-center">
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setMostrarDetalle(mostrarDetalle === auditoria.id ? null : auditoria.id);
-                                            }}
-                                            className="text-xs text-blue-600 hover:text-blue-800"
-                                        >
-                                            {mostrarDetalle === auditoria.id ? 'Ocultar' : 'Ver'} Detalle
-                                        </button>
-                                        
-                                        {isSelected && (
-                                            <CheckCircleIcon className="h-5 w-5 text-blue-600" />
-                                        )}
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })
+                        )}
                     </div>
                 </div>
 
@@ -476,43 +450,47 @@ const SolicitarPresupuestos = () => {
                     </div>
 
                     <div className="p-4 space-y-4">
-                        {proveedores.map((proveedor) => {
-                            const isSelected = proveedoresSeleccionados.has(proveedor.id);
-                            
-                            return (
-                                <div
-                                    key={proveedor.id}
-                                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                                        isSelected 
-                                            ? 'border-green-500 bg-green-50' 
+                        {proveedores.length === 0 ? (
+                            <div className="text-center py-8">
+                                <BuildingOffice2Icon className="mx-auto h-12 w-12 text-gray-400" />
+                                <p className="mt-2 text-sm text-gray-600">No hay proveedores disponibles</p>
+                            </div>
+                        ) : (
+                            proveedores.map((proveedor) => {
+                                const proveedorId = proveedor.id_proveedor || proveedor.id;
+                                const isSelected = proveedoresSeleccionados.has(proveedorId);
+
+                                return (
+                                    <div
+                                        key={proveedorId}
+                                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${isSelected
+                                            ? 'border-green-500 bg-green-50'
                                             : 'border-gray-200 hover:border-gray-300'
-                                    }`}
-                                    onClick={() => handleProveedorSelect(proveedor.id)}
-                                >
-                                    <div className="flex justify-between items-start">
-                                        <div className="flex-1">
-                                            <h3 className="font-semibold text-gray-900">{proveedor.nombre}</h3>
-                                            <p className="text-sm text-gray-600">{proveedor.especialidad}</p>
-                                            <div className="mt-2 space-y-1">
-                                                <div className="text-xs text-gray-500">
-                                                    <strong>Contacto:</strong> {proveedor.contacto}
-                                                </div>
-                                                <div className="text-xs text-gray-500">
-                                                    <strong>Email:</strong> {proveedor.email}
-                                                </div>
-                                                <div className="text-xs text-gray-500">
-                                                    <strong>Respuesta:</strong> {proveedor.tiempoRespuesta}
+                                            }`}
+                                        onClick={() => handleProveedorSelect(proveedorId)}
+                                    >
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex-1">
+                                                <h3 className="font-semibold text-gray-900">{proveedor.razon_social || proveedor.nombre}</h3>
+                                                <p className="text-sm text-gray-600">{proveedor.tipo_proveedor || proveedor.especialidad}</p>
+                                                <div className="mt-2 space-y-1">
+                                                    <div className="text-xs text-gray-500">
+                                                        <strong>Email:</strong> {proveedor.email}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                        <strong>Teléfono:</strong> {proveedor.telefono}
+                                                    </div>
                                                 </div>
                                             </div>
+
+                                            {isSelected && (
+                                                <CheckCircleIcon className="h-5 w-5 text-green-600 ml-2" />
+                                            )}
                                         </div>
-                                        
-                                        {isSelected && (
-                                            <CheckCircleIcon className="h-5 w-5 text-green-600 ml-2" />
-                                        )}
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })
+                        )}
                     </div>
                 </div>
             </div>
@@ -566,7 +544,7 @@ const SolicitarPresupuestos = () => {
                                 <li>Las solicitudes incluyen todos los datos de la auditoría y medicamentos</li>
                                 <li>Los proveedores recibirán un email con la información detallada</li>
                                 <li>El seguimiento de respuestas se puede ver en "Seguimiento Presupuestos"</li>
-                                <li>Los proveedores tienen 72 horas para responder por defecto</li>
+                                <li>Los proveedores tienen 7 días para responder por defecto</li>
                             </ul>
                         </div>
                     </div>

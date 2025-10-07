@@ -187,7 +187,7 @@ const HistorialPaciente = () => {
     setFilters(prev => ({ ...prev, limit: parseInt(newSize), page: 1 }));
   };
 
-  // EXPORTAR HISTORIAL - COPIADO DE LISTADO AUDITORIAS
+  // EXPORTAR HISTORIAL - Llamar al backend
   const handleExport = async () => {
     try {
       // Validar que hay datos para exportar
@@ -196,46 +196,34 @@ const HistorialPaciente = () => {
         return;
       }
 
-      setLoading(true);
+      if (!filters.dni) {
+        setError('DNI es requerido para exportar');
+        return;
+      }
 
-      console.log('Iniciando exportación de historial con datos:', {
-        cantidad: historial.length,
-        filtros: filters
+      setLoading(true);
+      setError('');
+
+      console.log('📥 Exportando historial del paciente DNI:', filters.dni);
+
+      // Llamar al backend para generar el Excel
+      const result = await auditoriasService.exportarHistorialPaciente({
+        dni: filters.dni,
+        fechaDesde: filters.fechaDesde || null,
+        fechaHasta: filters.fechaHasta || null,
+        search: searchTerm || null
       });
 
-      // Usar los datos ya filtrados en memoria (igual que en ListadoAuditorias)
-      const result = await auditoriasService.exportarExcelConDatos(historial, filters);
-      
-      if (result.success && result.blob) {
-        // Crear URL temporal para el blob
-        const url = window.URL.createObjectURL(result.blob);
-        
-        // Crear elemento de descarga
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `historial_paciente_${filters.dni}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-        link.style.display = 'none';
-        
-        // Agregar al DOM, hacer clic y limpiar
-        document.body.appendChild(link);
-        link.click();
-        
-        // Limpiar después de un pequeño delay
-        setTimeout(() => {
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-        }, 100);
-        
-        console.log('Archivo Excel del historial descargado exitosamente');
-        
+      if (result.success) {
+        console.log('✅ Archivo Excel del historial descargado exitosamente');
       } else {
         setError(result.message || 'Error al generar el archivo Excel');
-        console.error('Error en la respuesta del servicio:', result);
+        console.error('❌ Error:', result);
       }
-      
+
     } catch (error) {
-      console.error('Error exportando historial:', error);
-      setError('Error al generar el archivo Excel del historial');
+      console.error('❌ Error exportando historial:', error);
+      setError(error.message || 'Error al generar el archivo Excel del historial');
     } finally {
       setLoading(false);
     }

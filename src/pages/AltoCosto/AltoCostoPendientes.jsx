@@ -552,7 +552,7 @@ const AltoCostoPendientes = () => {
             if (filtros.fechaDesde) parametros.append('fechaDesde', filtros.fechaDesde);
             if (filtros.fechaHasta) parametros.append('fechaHasta', filtros.fechaHasta);
 
-            const url = `/auditorias/pendientes/excel?${parametros.toString()}`;
+            const url = `/auditorias/excel?${parametros.toString()}`;
             const response = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('cpce_token')}`

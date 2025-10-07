@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import Breadcrumb from '../components/common/Breadcrumb';
 import Loading from '../components/common/Loading';
 import ErrorMessage from '../components/common/ErrorMessage';
+import * as presupuestosService from '../services/presupuestosService';
+import { toast } from 'react-toastify';
 import {
     ClockIcon,
     BuildingOffice2Icon,
@@ -32,6 +34,7 @@ const SeguimientoPresupuestos = () => {
     const [error, setError] = useState('');
     const [filtroEstado, setFiltroEstado] = useState('TODOS');
     const [mostrarDetalle, setMostrarDetalle] = useState(null);
+    const [procesando, setProcesando] = useState(false);
 
     // Breadcrumb configuration
     const breadcrumbItems = [
@@ -186,15 +189,31 @@ const SeguimientoPresupuestos = () => {
         }
     ];
 
-    // Simular carga de datos
+    // Cargar datos desde la API
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setSolicitudes(solicitudesDemo);
-            setLoading(false);
-        }, 1000);
+        cargarSolicitudes();
+    }, [filtroEstado]);
 
-        return () => clearTimeout(timer);
-    }, []);
+    const cargarSolicitudes = async () => {
+        try {
+            setLoading(true);
+            setError('');
+
+            const params = filtroEstado !== 'TODOS' ? { estado: filtroEstado } : {};
+            const response = await presupuestosService.getSolicitudes(params);
+
+            if (response.success && response.data) {
+                setSolicitudes(response.data);
+            }
+
+        } catch (error) {
+            console.error('Error cargando solicitudes:', error);
+            setError(error.message || 'Error al cargar las solicitudes');
+            toast.error('Error al cargar solicitudes de presupuesto');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Filtrar solicitudes por estado
     const solicitudesFiltradas = solicitudes.filter(solicitud => {
@@ -276,6 +295,55 @@ const SeguimientoPresupuestos = () => {
         });
     };
 
+    // Adjudicar presupuesto a un proveedor
+    const handleAdjudicar = async (solicitudId, respuestaId, proveedorNombre) => {
+        const motivo = prompt(`Ingrese el motivo de adjudicación al proveedor "${proveedorNombre}":`);
+
+        if (!motivo || motivo.trim() === '') {
+            toast.warning('Debe ingresar un motivo de adjudicación');
+            return;
+        }
+
+        if (!window.confirm(`¿Confirma la adjudicación al proveedor ${proveedorNombre}?`)) {
+            return;
+        }
+
+        try {
+            setProcesando(true);
+
+            const response = await presupuestosService.adjudicarPresupuesto(solicitudId, {
+                id_respuesta: respuestaId,
+                motivo_adjudicacion: motivo
+            });
+
+            if (response.success) {
+                toast.success(`Presupuesto adjudicado exitosamente a ${proveedorNombre}`, {
+                    autoClose: 5000
+                });
+
+                // Mostrar info de la orden creada
+                if (response.data && response.data.numero_orden) {
+                    setTimeout(() => {
+                        toast.info(`Orden de compra ${response.data.numero_orden} creada automáticamente`, {
+                            autoClose: 7000
+                        });
+                    }, 2000);
+                }
+
+                // Recargar solicitudes
+                setTimeout(() => {
+                    cargarSolicitudes();
+                }, 3000);
+            }
+
+        } catch (error) {
+            console.error('Error al adjudicar presupuesto:', error);
+            toast.error(error.message || 'Error al adjudicar el presupuesto');
+        } finally {
+            setProcesando(false);
+        }
+    };
+
     // Calcular días transcurridos
     const calcularDiasTranscurridos = (fechaEnvio) => {
         const ahora = new Date();
@@ -323,10 +391,11 @@ const SeguimientoPresupuestos = () => {
                                 ))}
                             </select>
                             <button
-                                onClick={() => window.location.reload()}
-                                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                                onClick={cargarSolicitudes}
+                                disabled={loading}
+                                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
                             >
-                                <ArrowPathIcon className="h-4 w-4 mr-2" />
+                                <ArrowPathIcon className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                                 Actualizar
                             </button>
                         </div>
@@ -539,15 +608,32 @@ const SeguimientoPresupuestos = () => {
                                                                 </td>
                                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                                     <div className="flex space-x-2">
-                                                                        <button className="text-blue-600 hover:text-blue-900">
-                                                                            <PhoneIcon className="h-4 w-4" title="Contactar" />
-                                                                        </button>
-                                                                        <button className="text-green-600 hover:text-green-900">
-                                                                            <EnvelopeIcon className="h-4 w-4" title="Email" />
-                                                                        </button>
-                                                                        {proveedor.estado === 'RECIBIDO' && !proveedor.fechaAdjudicacion && (
-                                                                            <button className="text-purple-600 hover:text-purple-900">
-                                                                                <HandThumbUpIcon className="h-4 w-4" title="Adjudicar" />
+                                                                        <a
+                                                                            href={`tel:${proveedor.telefono}`}
+                                                                            className="text-blue-600 hover:text-blue-900"
+                                                                            title="Llamar"
+                                                                        >
+                                                                            <PhoneIcon className="h-4 w-4" />
+                                                                        </a>
+                                                                        <a
+                                                                            href={`mailto:${proveedor.email}`}
+                                                                            className="text-green-600 hover:text-green-900"
+                                                                            title="Enviar Email"
+                                                                        >
+                                                                            <EnvelopeIcon className="h-4 w-4" />
+                                                                        </a>
+                                                                        {proveedor.estado === 'RECIBIDO' && solicitud.estadoGeneral !== 'ADJUDICADO' && (
+                                                                            <button
+                                                                                onClick={() => handleAdjudicar(
+                                                                                    solicitud.id,
+                                                                                    proveedor.id_respuesta || proveedor.id,
+                                                                                    proveedor.nombre
+                                                                                )}
+                                                                                disabled={procesando}
+                                                                                className="text-purple-600 hover:text-purple-900 disabled:opacity-50"
+                                                                                title="Adjudicar"
+                                                                            >
+                                                                                <HandThumbUpIcon className="h-4 w-4" />
                                                                             </button>
                                                                         )}
                                                                     </div>

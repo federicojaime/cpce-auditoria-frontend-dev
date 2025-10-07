@@ -291,11 +291,21 @@ export const getContactosByProveedorId = async (proveedorId) => {
  */
 export const createContacto = async (proveedorId, contactoData) => {
   try {
+    console.log('📝 Creando contacto para proveedor:', proveedorId, contactoData);
     const response = await api.post(`/proveedores/${proveedorId}/contactos`, contactoData);
-    return handleAPIResponse(response);
+    const data = handleAPIResponse(response);
+    console.log('✅ Contacto creado exitosamente');
+    return data;
   } catch (error) {
-    console.error('Error creating contacto:', error);
-    throw new ProveedoresAPIError('No se pudo crear el contacto', error);
+    console.error('❌ Error creando contacto:', error);
+
+    // Extraer mensaje de error del backend
+    const errorMessage = error.response?.data?.message
+      || error.response?.data?.error
+      || error.message
+      || 'No se pudo crear el contacto';
+
+    throw new Error(errorMessage);
   }
 };
 
@@ -308,11 +318,21 @@ export const createContacto = async (proveedorId, contactoData) => {
  */
 export const updateContacto = async (proveedorId, contactoId, contactoData) => {
   try {
+    console.log('✏️ Actualizando contacto:', proveedorId, contactoId, contactoData);
     const response = await api.put(`/proveedores/${proveedorId}/contactos/${contactoId}`, contactoData);
-    return handleAPIResponse(response);
+    const data = handleAPIResponse(response);
+    console.log('✅ Contacto actualizado exitosamente');
+    return data;
   } catch (error) {
-    console.error('Error updating contacto:', error);
-    throw new ProveedoresAPIError('No se pudo actualizar el contacto', error);
+    console.error('❌ Error actualizando contacto:', error);
+
+    // Extraer mensaje de error del backend
+    const errorMessage = error.response?.data?.message
+      || error.response?.data?.error
+      || error.message
+      || 'No se pudo actualizar el contacto';
+
+    throw new Error(errorMessage);
   }
 };
 
@@ -324,11 +344,21 @@ export const updateContacto = async (proveedorId, contactoId, contactoData) => {
  */
 export const deleteContacto = async (proveedorId, contactoId) => {
   try {
+    console.log('🗑️ Eliminando contacto:', proveedorId, contactoId);
     const response = await api.delete(`/proveedores/${proveedorId}/contactos/${contactoId}`);
-    return handleAPIResponse(response);
+    const data = handleAPIResponse(response);
+    console.log('✅ Contacto eliminado exitosamente');
+    return data;
   } catch (error) {
-    console.error('Error deleting contacto:', error);
-    throw new ProveedoresAPIError('No se pudo eliminar el contacto', error);
+    console.error('❌ Error eliminando contacto:', error);
+
+    // Extraer mensaje de error del backend
+    const errorMessage = error.response?.data?.message
+      || error.response?.data?.error
+      || error.message
+      || 'No se pudo eliminar el contacto';
+
+    throw new Error(errorMessage);
   }
 };
 

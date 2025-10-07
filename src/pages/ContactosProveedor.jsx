@@ -18,6 +18,7 @@ const ContactosProveedor = () => {
   const [selectedContacto, setSelectedContacto] = useState(null);
   const [formData, setFormData] = useState({
     nombre: '',
+    apellido: '',
     cargo: '',
     telefono: '',
     email: ''
@@ -73,6 +74,7 @@ const ContactosProveedor = () => {
     if (mode === 'edit' && contacto) {
       setFormData({
         nombre: contacto.nombre || '',
+        apellido: contacto.apellido || '',
         cargo: contacto.cargo || '',
         telefono: contacto.telefono || '',
         email: contacto.email || ''
@@ -80,6 +82,7 @@ const ContactosProveedor = () => {
     } else if (mode === 'create') {
       setFormData({
         nombre: '',
+        apellido: '',
         cargo: '',
         telefono: '',
         email: ''
@@ -94,6 +97,7 @@ const ContactosProveedor = () => {
     setSelectedContacto(null);
     setFormData({
       nombre: '',
+      apellido: '',
       cargo: '',
       telefono: '',
       email: ''
@@ -196,7 +200,7 @@ const ContactosProveedor = () => {
                 <div key={contacto.id_contacto} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold">{contacto.nombre}</h3>
+                      <h3 className="text-lg font-semibold">{contacto.nombre} {contacto.apellido}</h3>
                       <p className="text-gray-600">{contacto.cargo}</p>
                       <div className="mt-2 space-y-1">
                         {contacto.telefono && (
@@ -247,7 +251,7 @@ const ContactosProveedor = () => {
         {modalMode === 'delete' ? (
           <div>
             <p className="mb-4">¿Está seguro que desea eliminar este contacto?</p>
-            <p className="font-semibold mb-6">{selectedContacto?.nombre}</p>
+            <p className="font-semibold mb-6">{selectedContacto?.nombre} {selectedContacto?.apellido}</p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={handleCloseModal}
@@ -268,7 +272,7 @@ const ContactosProveedor = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre Completo
+                  Nombre <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -277,6 +281,22 @@ const ContactosProveedor = () => {
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
+                  placeholder="Ej: Juan"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Apellido <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="apellido"
+                  value={formData.apellido}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                  placeholder="Ej: Pérez"
                 />
               </div>
 
@@ -290,7 +310,7 @@ const ContactosProveedor = () => {
                   value={formData.cargo}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
+                  placeholder="Ej: Gerente Comercial"
                 />
               </div>
 
@@ -304,7 +324,7 @@ const ContactosProveedor = () => {
                   value={formData.telefono}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
+                  placeholder="Ej: 011-1234-5678"
                 />
               </div>
 
@@ -318,7 +338,7 @@ const ContactosProveedor = () => {
                   value={formData.email}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
+                  placeholder="Ej: contacto@empresa.com"
                 />
               </div>
             </div>

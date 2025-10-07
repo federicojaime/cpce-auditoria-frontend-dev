@@ -16,19 +16,31 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [trialInfo, setTrialInfo] = useState(null); // Información del período de prueba
 
   useEffect(() => {
     const token = localStorage.getItem('cpce_token');
     const userData = localStorage.getItem('cpce_user');
-    
+    const trialData = localStorage.getItem('cpce_trial');
+
     console.log('AuthContext - Verificando token existente:', !!token);
-    
+
     if (token && userData) {
       try {
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
         setIsAuthenticated(true);
         setLoginError('');
+
+        // Cargar información de prueba si existe
+        if (trialData) {
+          try {
+            setTrialInfo(JSON.parse(trialData));
+          } catch (e) {
+            console.error('Error parsing trial data:', e);
+          }
+        }
+
         console.log('AuthContext - Usuario cargado:', parsedUser.nombre, 'Rol:', parsedUser.rol);
       } catch (error) {
         console.error('Error parsing user data:', error);
@@ -51,21 +63,48 @@ export const AuthProvider = ({ children }) => {
 
       console.log('AuthContext - Respuesta recibida:', response.data);
 
+      // Verificar si el período de prueba expiró
+      if (response.data.expired) {
+        const errorMsg = response.data.message || 'Tu período de prueba ha expirado';
+        console.log('AuthContext - Login bloqueado: período de prueba expirado');
+        setLoginError(errorMsg);
+        return {
+          success: false,
+          expired: true,
+          message: errorMsg,
+          fechaExpiracion: response.data.fechaExpiracion
+        };
+      }
+
       if (response.data.success) {
-        const { token, user: userData } = response.data;
-        
+        const { token, user: userData, trial } = response.data;
+
         // Guardar en localStorage
         localStorage.setItem('cpce_token', token);
         localStorage.setItem('cpce_user', JSON.stringify(userData));
-        
+
+        // Guardar información de prueba si existe
+        if (trial) {
+          localStorage.setItem('cpce_trial', JSON.stringify(trial));
+          setTrialInfo(trial);
+          console.log('AuthContext - Usuario de prueba:', trial.diasRestantes, 'días restantes');
+        } else {
+          localStorage.removeItem('cpce_trial');
+          setTrialInfo(null);
+        }
+
         // Actualizar estado
         setUser(userData);
         setIsAuthenticated(true);
         setLoginError('');
-        
+
         console.log('AuthContext - Login exitoso para:', userData.nombre, 'Rol:', userData.rol);
-        
-        return { success: true, user: userData };
+
+        return {
+          success: true,
+          user: userData,
+          trial: trial || null
+        };
       } else {
         const errorMsg = response.data.message || 'Usuario y/o contraseña incorrectos';
         console.log('AuthContext - Login fallido:', errorMsg);
@@ -92,9 +131,11 @@ export const AuthProvider = ({ children }) => {
     } finally {
       localStorage.removeItem('cpce_token');
       localStorage.removeItem('cpce_user');
+      localStorage.removeItem('cpce_trial');
       setUser(null);
       setIsAuthenticated(false);
       setLoginError('');
+      setTrialInfo(null);
       console.log('AuthContext - Estado limpiado');
     }
   };
@@ -137,6 +178,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     loading,
     loginError,
+    trialInfo, // Información del período de prueba
     login,
     logout,
     clearLoginError,

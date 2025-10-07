@@ -966,7 +966,7 @@ const Estadisticas = () => {
                     <div className="flex justify-center items-center space-x-8 text-sm text-gray-500">
                         <span>🕒 Actualizado: {new Date().toLocaleString()}</span>
                         <span>👨‍⚕️ Usuario: {user?.nombre}</span>
-                        <span>🏥 CPCE Córdoba</span>
+                        <span>🏥 Sistema de Auditorías</span>
                     </div>
                 </div>
             </div>

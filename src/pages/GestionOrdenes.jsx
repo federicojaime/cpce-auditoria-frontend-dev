@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import Breadcrumb from '../components/common/Breadcrumb';
 import Loading from '../components/common/Loading';
 import ErrorMessage from '../components/common/ErrorMessage';
+import * as presupuestosService from '../services/presupuestosService';
 import { toast } from 'react-toastify';
 import {
     ClipboardDocumentCheckIcon,
@@ -292,48 +293,54 @@ const GestionOrdenes = () => {
         }
     ];
 
-    // Simular carga de datos
+    // Cargar órdenes desde la API
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setOrdenes(ordenesDemo);
-            setLoading(false);
-        }, 1000);
+        cargarOrdenes();
+    }, [filtroEstado]);
 
-        return () => clearTimeout(timer);
-    }, []);
+    const cargarOrdenes = async () => {
+        try {
+            setLoading(true);
+            setError('');
+
+            const params = filtroEstado !== 'TODAS' ? { estado: filtroEstado } : {};
+            const response = await presupuestosService.getOrdenesCompra(params);
+
+            if (response.success && response.data) {
+                setOrdenes(response.data);
+            }
+
+        } catch (error) {
+            console.error('Error cargando órdenes:', error);
+            setError(error.message || 'Error al cargar las órdenes');
+            toast.error('Error al cargar órdenes de compra');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // 🔥 FUNCIÓN PARA ENVIAR NOTIFICACIÓN AL PACIENTE
     const enviarNotificacionPaciente = async (orden, tipoNotificacion) => {
         try {
             console.log('🔔 Enviando notificación al paciente...', { orden: orden.id, tipo: tipoNotificacion });
 
-            // Simular API call para enviar notificación
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/notificaciones/paciente`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('cpce_token')}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    ordenId: orden.id,
-                    pacientes: orden.pacientes,
-                    medicamentos: orden.medicamentos,
-                    tipo: tipoNotificacion,
-                    canal: 'EMAIL_SMS', // Enviar por ambos canales
-                    urgencia: 'ALTA',
-                    datosOrden: {
-                        numero: orden.numeroOrden,
-                        proveedor: orden.proveedor.nombre,
-                        fechaEntrega: new Date().toISOString(),
-                        tracking: orden.tracking?.numero
-                    }
-                })
+            // Llamar a la API real para enviar notificación
+            const response = await presupuestosService.notificarPacientes({
+                ordenId: orden.id,
+                pacientes: orden.pacientes,
+                medicamentos: orden.medicamentos,
+                tipo: tipoNotificacion,
+                canal: 'EMAIL_SMS', // Enviar por ambos canales
+                urgencia: 'ALTA',
+                datosOrden: {
+                    numero: orden.numeroOrden || orden.numero_orden,
+                    proveedor: orden.proveedor?.nombre || orden.razon_social,
+                    fechaEntrega: new Date().toISOString(),
+                    tracking: orden.tracking?.numero
+                }
             });
 
-            // Simular respuesta exitosa
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            console.log('✅ Notificación enviada exitosamente');
+            console.log('✅ Notificación enviada exitosamente:', response);
 
             // Toast de éxito con información detallada
             toast.success(
@@ -497,32 +504,19 @@ const GestionOrdenes = () => {
         try {
             setProcesando(true);
 
-            // Simular envío
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            const response = await presupuestosService.cambiarEstadoOrden(ordenId, {
+                nuevo_estado: 'CONFIRMADO',
+                observaciones: 'Orden enviada al proveedor por email'
+            });
 
-            // Actualizar estado de la orden
-            setOrdenes(prev => prev.map(orden =>
-                orden.id === ordenId
-                    ? {
-                        ...orden,
-                        estado: 'ENVIADA',
-                        fechaEnvio: new Date().toISOString(),
-                        historial: [
-                            ...orden.historial,
-                            {
-                                fecha: new Date().toISOString(),
-                                estado: 'ENVIADA',
-                                descripcion: 'Orden enviada al proveedor por email',
-                                usuario: user?.nombre
-                            }
-                        ]
-                    }
-                    : orden
-            ));
+            if (response.success) {
+                toast.success('Orden enviada exitosamente al proveedor');
+                setTimeout(() => cargarOrdenes(), 1500);
+            }
 
-            toast.success('Orden enviada exitosamente al proveedor');
         } catch (error) {
-            toast.error('Error al enviar la orden');
+            console.error('Error al enviar orden:', error);
+            toast.error(error.message || 'Error al enviar la orden');
         } finally {
             setProcesando(false);
         }
@@ -530,37 +524,24 @@ const GestionOrdenes = () => {
 
     const handleCancelarOrden = async (ordenId) => {
         const motivo = prompt('Ingrese el motivo de cancelación:');
-        if (!motivo) return;
+        if (!motivo || motivo.trim() === '') {
+            toast.warning('Debe ingresar un motivo de cancelación');
+            return;
+        }
 
         try {
             setProcesando(true);
 
-            // Simular cancelación
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const response = await presupuestosService.cancelarOrden(ordenId, motivo);
 
-            // Actualizar estado de la orden
-            setOrdenes(prev => prev.map(orden =>
-                orden.id === ordenId
-                    ? {
-                        ...orden,
-                        estado: 'CANCELADA',
-                        observaciones: `${orden.observaciones || ''}\nCANCELADA: ${motivo}`,
-                        historial: [
-                            ...orden.historial,
-                            {
-                                fecha: new Date().toISOString(),
-                                estado: 'CANCELADA',
-                                descripcion: `Orden cancelada: ${motivo}`,
-                                usuario: user?.nombre
-                            }
-                        ]
-                    }
-                    : orden
-            ));
+            if (response.success) {
+                toast.success('Orden cancelada correctamente');
+                setTimeout(() => cargarOrdenes(), 1500);
+            }
 
-            toast.success('Orden cancelada correctamente');
         } catch (error) {
-            toast.error('Error al cancelar la orden');
+            console.error('Error al cancelar orden:', error);
+            toast.error(error.message || 'Error al cancelar la orden');
         } finally {
             setProcesando(false);
         }
@@ -591,75 +572,39 @@ const GestionOrdenes = () => {
                 draggable: false,
             });
 
-            // 1. Simular confirmación de entrega en el backend
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // 2. 🔥 ENVIAR NOTIFICACIÓN AL PACIENTE
-            const notificacionResult = await enviarNotificacionPaciente(orden, 'MEDICAMENTOS_DISPONIBLES');
+            // 1. 🔥 CONFIRMAR ENTREGA EN EL BACKEND (esto notifica automáticamente)
+            const response = await presupuestosService.confirmarEntrega(ordenId, {
+                fecha_entrega_real: new Date().toISOString().split('T')[0],
+                observaciones: 'Entrega confirmada y paciente notificado automáticamente',
+                recibido_por: user?.nombre || 'CPCE Recepción'
+            });
 
             // Cerrar toast de carga
             toast.dismiss(toastId);
 
-            if (notificacionResult.success) {
-                // 3. Actualizar estado de la orden
-                setOrdenes(prev => prev.map(o =>
-                    o.id === ordenId
-                        ? {
-                            ...o,
-                            estado: 'ENTREGADO',
-                            fechaEntregaReal: new Date().toISOString(),
-                            notificacionEnviada: true,
-                            historial: [
-                                ...o.historial,
-                                {
-                                    fecha: new Date().toISOString(),
-                                    estado: 'ENTREGADO',
-                                    descripcion: `Entrega confirmada - ${o.pacientes.length} paciente(s) notificado(s) por SMS y Email`,
-                                    usuario: user?.nombre
-                                }
-                            ]
-                        }
-                        : o
-                ));
+            if (response.success) {
+                const { notificaciones_enviadas } = response.data;
 
-                // Toast final de éxito
+                toast.success(
+                    `🎉 Entrega confirmada - ${notificaciones_enviadas?.exitosas || 0} paciente(s) notificado(s) por Email`,
+                    {
+                        position: "top-right",
+                        autoClose: 5000,
+                    }
+                );
+
+                // Recargar órdenes para obtener datos actualizados
                 setTimeout(() => {
-                    toast.success(
-                        `🎉 Proceso completado: Entrega confirmada y ${orden.pacientes.length} paciente(s) notificado(s)`,
-                        {
-                            position: "top-right",
-                            autoClose: 5000,
-                            hideProgressBar: false,
-                            closeOnClick: true,
-                            pauseOnHover: true,
-                            draggable: true,
-                        }
-                    );
-                }, 1000);
+                    cargarOrdenes();
+                }, 2000);
 
             } else {
-                // Si falló la notificación, actualizar orden pero mostrar warning
-                setOrdenes(prev => prev.map(o =>
-                    o.id === ordenId
-                        ? {
-                            ...o,
-                            estado: 'ENTREGADO',
-                            fechaEntregaReal: new Date().toISOString(),
-                            notificacionEnviada: false,
-                            historial: [
-                                ...o.historial,
-                                {
-                                    fecha: new Date().toISOString(),
-                                    estado: 'ENTREGADO',
-                                    descripcion: 'Entrega confirmada - ERROR al notificar paciente',
-                                    usuario: user?.nombre
-                                }
-                            ]
-                        }
-                        : o
-                ));
+                toast.warning('⚠️ Entrega confirmada, pero hubo problemas con las notificaciones');
 
-                toast.warning('⚠️ Entrega confirmada, pero no se pudo notificar al paciente automáticamente');
+                // Recargar órdenes de todos modos
+                setTimeout(() => {
+                    cargarOrdenes();
+                }, 2000);
             }
 
         } catch (error) {
@@ -684,33 +629,17 @@ const GestionOrdenes = () => {
                 throw new Error('Orden no encontrada');
             }
 
-            // Enviar notificación
+            // Enviar notificación usando el servicio
             const result = await enviarNotificacionPaciente(orden, 'REENVIO_NOTIFICACION');
 
             if (result.success) {
-                // Actualizar historial
-                setOrdenes(prev => prev.map(o =>
-                    o.id === ordenId
-                        ? {
-                            ...o,
-                            notificacionEnviada: true,
-                            historial: [
-                                ...o.historial,
-                                {
-                                    fecha: new Date().toISOString(),
-                                    estado: o.estado,
-                                    descripcion: 'Notificación reenviada manualmente al paciente',
-                                    usuario: user?.nombre
-                                }
-                            ]
-                        }
-                        : o
-                ));
+                toast.success('Notificación reenviada exitosamente');
+                setTimeout(() => cargarOrdenes(), 2000);
             }
 
         } catch (error) {
             console.error('Error reenviando notificación:', error);
-            toast.error('Error al reenviar la notificación');
+            toast.error(error.message || 'Error al reenviar la notificación');
         } finally {
             setProcesando(false);
         }
@@ -755,10 +684,11 @@ const GestionOrdenes = () => {
                                 ))}
                             </select>
                             <button
-                                onClick={() => window.location.reload()}
-                                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                                onClick={cargarOrdenes}
+                                disabled={loading}
+                                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
                             >
-                                <ArrowPathIcon className="h-4 w-4 mr-2" />
+                                <ArrowPathIcon className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                                 Actualizar
                             </button>
                         </div>

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { EyeIcon, EyeSlashIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { useNotifications } from '../../context/NotificationsContext';
+import { EyeIcon, EyeSlashIcon, ExclamationTriangleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { toast } from 'react-toastify';
 
 // Importar assets
 import { cpceLogo, loginBackground } from '../../assets';
@@ -14,6 +16,7 @@ const Login = () => {
   const [localError, setLocalError] = useState('');
 
   const { login, isAuthenticated, getUserDefaultRoute, clearLoginError } = useAuth();
+  const { addNotification } = useNotifications();
   const navigate = useNavigate();
 
   // Cargar error de sessionStorage al montar
@@ -54,6 +57,17 @@ const Login = () => {
     try {
       const result = await login(username.trim(), password);
 
+      // Verificar si el usuario tiene período de prueba expirado
+      if (result.expired) {
+        const error = result.message || 'Tu período de prueba ha expirado';
+        console.log('❌ Login bloqueado: período de prueba expirado');
+
+        setLocalError(error);
+        sessionStorage.setItem('login_error', error);
+        setPassword('');
+        return;
+      }
+
       if (!result.success) {
         const error = result.message || 'Usuario y/o contraseña incorrectos';
         console.log('❌ Login fallido:', error);
@@ -62,8 +76,65 @@ const Login = () => {
         sessionStorage.setItem('login_error', error);
         setPassword('');
       } else {
-        // Login exitoso - la redirección se maneja en el useEffect
+        // Login exitoso
         console.log('✅ Login exitoso para rol:', result.user.rol);
+
+        // Mostrar notificación de período de prueba si corresponde
+        if (result.trial) {
+          const { diasRestantes, warning } = result.trial;
+
+          // Mostrar warning si quedan pocos días
+          if (warning) {
+            const notificationMsg = warning;
+            toast.warning(
+              <div className="flex items-start">
+                <ClockIcon className="h-6 w-6 text-amber-400 mr-3 flex-shrink-0" />
+                <div>
+                  <div className="font-semibold">Período de Prueba</div>
+                  <div className="text-sm opacity-90">{warning}</div>
+                </div>
+              </div>,
+              {
+                autoClose: 7000,
+                position: "top-center"
+              }
+            );
+
+            // Guardar en el centro de notificaciones
+            addNotification({
+              type: 'warning',
+              title: 'Período de Prueba',
+              message: notificationMsg
+            });
+          } else if (diasRestantes > 0) {
+            const notificationMsg = `Tienes ${diasRestantes} ${diasRestantes === 1 ? 'día' : 'días'} restantes de prueba`;
+            // Mostrar info general
+            toast.info(
+              <div className="flex items-start">
+                <ClockIcon className="h-6 w-6 text-blue-400 mr-3 flex-shrink-0" />
+                <div>
+                  <div className="font-semibold">Cuenta en Período de Prueba</div>
+                  <div className="text-sm opacity-90">
+                    {notificationMsg}
+                  </div>
+                </div>
+              </div>,
+              {
+                autoClose: 5000,
+                position: "top-center"
+              }
+            );
+
+            // Guardar en el centro de notificaciones
+            addNotification({
+              type: 'trial',
+              title: 'Cuenta en Período de Prueba',
+              message: notificationMsg
+            });
+          }
+        }
+
+        // La redirección se maneja en el useEffect
       }
     } catch (error) {
       const errorMsg = 'Error de conexión. Verifique su red.';
@@ -116,7 +187,7 @@ const Login = () => {
             <div className="mb-4">
               <img
                 src={cpceLogo}
-                alt="CPCE Córdoba"
+                alt="Sistema de Auditorías"
                 className="mx-auto h-20 w-auto"
                 style={{ filter: "drop-shadow(0 0 3px #000) drop-shadow(0 0 6px #000)" }}
                 onError={(e) => {

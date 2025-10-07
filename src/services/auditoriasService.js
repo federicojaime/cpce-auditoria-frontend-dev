@@ -1,6 +1,37 @@
 // src/services/auditoriasService.js CORREGIDO
 import api from './api';
 
+// Función auxiliar para descargar archivos Blob
+const descargarBlob = (blob, nombreArchivo) => {
+  try {
+    if (!blob || !(blob instanceof Blob)) {
+      throw new Error('Archivo inválido');
+    }
+
+    if (blob.size === 0) {
+      throw new Error('El archivo está vacío');
+    }
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', nombreArchivo);
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+
+    setTimeout(() => {
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+
+    return true;
+  } catch (error) {
+    console.error('Error descargando archivo:', error);
+    return false;
+  }
+};
+
 export const auditoriasService = {
   // Obtener auditorías pendientes
   getPendientes: async (params = {}) => {
@@ -359,10 +390,22 @@ export const auditoriasService = {
         throw new Error('El archivo generado está vacío');
       }
 
+      // Generar nombre de archivo con fecha actual
+      const fecha = new Date().toISOString().split('T')[0];
+      const nombreArchivo = `auditorias_${fecha}.xlsx`;
+
+      // Descargar el archivo
+      const descargado = descargarBlob(response.data, nombreArchivo);
+
+      if (!descargado) {
+        throw new Error('Error al descargar el archivo');
+      }
+
+      console.log('✅ Excel descargado exitosamente');
+
       return {
         success: true,
-        blob: response.data,
-        message: 'Excel generado correctamente'
+        message: 'Excel generado y descargado correctamente'
       };
       
     } catch (error) {
@@ -399,28 +442,175 @@ export const auditoriasService = {
   // Generar reporte Excel
   generarExcel: async (fecha) => {
     try {
+      console.log('🔍 Generando Excel para fecha:', fecha);
+
       const response = await api.post('/auditorias/excel', { fecha }, {
         responseType: 'blob' // Para manejar archivos
       });
 
-      // Crear URL para descargar el archivo
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `auditorias_${fecha}.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      console.log('📨 Respuesta recibida:', {
+        status: response.status,
+        dataType: typeof response.data,
+        dataSize: response.data?.size,
+        contentType: response.headers['content-type']
+      });
 
+      // Validar que es un blob válido
+      if (!response.data || !(response.data instanceof Blob)) {
+        throw new Error('La respuesta no es un archivo válido');
+      }
+
+      if (response.data.size === 0) {
+        throw new Error('El archivo está vacío');
+      }
+
+      // Verificar si el blob es realmente un JSON de error (el backend envió error)
+      const contentType = response.data.type || response.headers['content-type'] || '';
+
+      if (contentType.includes('application/json')) {
+        // El servidor devolvió un JSON, probablemente un error o sin datos
+        const text = await response.data.text();
+        console.error('❌ El servidor devolvió JSON en lugar de Excel:', text);
+
+        try {
+          const errorData = JSON.parse(text);
+
+          // Caso específico: sin datos
+          if (errorData.success && errorData.total === 0) {
+            throw new Error(`No hay datos disponibles para el período ${errorData.periodo || fecha}`);
+          }
+
+          throw new Error(errorData.message || 'El servidor no pudo generar el archivo Excel');
+        } catch (parseError) {
+          // Si parseError es nuestro error personalizado, re-lanzarlo
+          if (parseError.message.includes('No hay datos')) {
+            throw parseError;
+          }
+          throw new Error('El servidor no pudo generar el archivo Excel');
+        }
+      }
+
+      // Verificar que sea un Excel válido
+      if (!contentType.includes('spreadsheet') && !contentType.includes('excel') && !contentType.includes('octet-stream')) {
+        console.warn('⚠️ Tipo de contenido sospechoso:', contentType);
+      }
+
+      // Descargar el archivo usando función auxiliar
+      const nombreArchivo = `auditorias_${fecha.replace(/-/g, '_')}.xlsx`;
+      const descargado = descargarBlob(response.data, nombreArchivo);
+
+      if (!descargado) {
+        throw new Error('Error al descargar el archivo');
+      }
+
+      console.log('✅ Excel descargado correctamente');
       return {
         success: true,
         message: 'Archivo Excel descargado correctamente'
       };
     } catch (error) {
-      console.error('Error en generarExcel:', error);
+      console.error('❌ Error en generarExcel:', error);
+
+      // Si hay error de respuesta y es un Blob, intentar leer el mensaje
+      if (error.response?.data instanceof Blob) {
+        try {
+          const text = await error.response.data.text();
+          const errorData = JSON.parse(text);
+          return {
+            success: false,
+            message: errorData.message || 'Error al generar el archivo Excel'
+          };
+        } catch (e) {
+          // No se pudo parsear
+        }
+      }
+
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al generar el archivo Excel'
+        message: error.message || 'Error al generar el archivo Excel'
+      };
+    }
+  },
+
+  // Exportar historial de paciente a Excel
+  exportarHistorialPaciente: async (params) => {
+    try {
+      console.log('📥 Exportando historial de paciente:', params);
+
+      const response = await api.post('/auditorias/historial-paciente/excel', params, {
+        responseType: 'blob'
+      });
+
+      console.log('📨 Respuesta recibida:', {
+        status: response.status,
+        dataType: typeof response.data,
+        dataSize: response.data?.size,
+        contentType: response.headers['content-type']
+      });
+
+      // Validar blob
+      if (!response.data || !(response.data instanceof Blob)) {
+        throw new Error('La respuesta no es un archivo válido');
+      }
+
+      if (response.data.size === 0) {
+        throw new Error('El archivo está vacío');
+      }
+
+      // Verificar si es JSON (error del backend)
+      const contentType = response.data.type || response.headers['content-type'] || '';
+
+      if (contentType.includes('application/json')) {
+        const text = await response.data.text();
+        console.error('❌ Backend devolvió JSON:', text);
+
+        try {
+          const errorData = JSON.parse(text);
+          if (errorData.success && errorData.total === 0) {
+            throw new Error(`No hay datos disponibles para el DNI ${params.dni}`);
+          }
+          throw new Error(errorData.message || 'Error al generar el archivo Excel');
+        } catch (parseError) {
+          if (parseError.message.includes('No hay datos')) {
+            throw parseError;
+          }
+          throw new Error('Error al generar el archivo Excel');
+        }
+      }
+
+      // Descargar archivo
+      const nombreArchivo = `historial_paciente_${params.dni}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const descargado = descargarBlob(response.data, nombreArchivo);
+
+      if (!descargado) {
+        throw new Error('Error al descargar el archivo');
+      }
+
+      console.log('✅ Historial exportado correctamente');
+      return {
+        success: true,
+        message: 'Historial exportado correctamente'
+      };
+
+    } catch (error) {
+      console.error('❌ Error exportando historial:', error);
+
+      if (error.response?.data instanceof Blob) {
+        try {
+          const text = await error.response.data.text();
+          const errorData = JSON.parse(text);
+          return {
+            success: false,
+            message: errorData.message || 'Error al exportar el historial'
+          };
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      return {
+        success: false,
+        message: error.message || 'Error al exportar el historial del paciente'
       };
     }
   },
@@ -585,7 +775,7 @@ export const auditoriasService = {
 
   // Obtener URL del PDF (sin generar)
   obtenerURLPDF: (id) => {
-    return `https://cpce.recetasalud.ar/audi/tmp/audinro${id}.pdf`;
+    return `http://test1.recetasalud.ar/audi/tmp/audinro${id}.pdf`;
   },
 
   // Verificar si el PDF existe

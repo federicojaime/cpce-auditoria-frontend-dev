@@ -226,7 +226,7 @@ const Dashboard = () => {
                 ¡Bienvenido, {user?.nombre}!
               </h1>
               <p className="mt-2 text-blue-100">
-                Sistema de Auditorías CPCE Córdoba - Panel de Control Unificado
+                Sistema de Auditorías - Panel de Control Unificado
               </p>
             </div>
             <div className="hidden md:block">

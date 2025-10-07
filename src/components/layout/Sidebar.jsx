@@ -12,7 +12,6 @@ import {
     DocumentArrowDownIcon,
     BookOpenIcon,
     BuildingOfficeIcon,
-    UserGroupIcon,
     PlusIcon,
     ChevronDownIcon,
     ChevronRightIcon,
@@ -176,12 +175,6 @@ const Sidebar = () => {
                     name: 'Nuevo Proveedor',
                     href: '/proveedores/nuevo',
                     icon: PlusIcon
-                },
-                {
-                    id: 'contactos',
-                    name: 'Gestión de Contactos',
-                    href: '/proveedores/contactos',
-                    icon: UserGroupIcon
                 }
             ]
         },
@@ -265,7 +258,7 @@ const Sidebar = () => {
             <div className="flex items-center flex-shrink-0 px-4 py-4 border-b border-gray-200">
                 <img
                     src={cpceLogo}
-                    alt="CPCE Córdoba"
+                    alt="Sistema de Auditoría"
                     className="h-10 w-18 object-contain drop-shadow-[0_0_10px_rgba(0,0,0,0.9)] drop-shadow-[0_0_3px_rgba(0,0,0,1)]"
                     onError={(e) => {
                         e.target.style.display = 'none';

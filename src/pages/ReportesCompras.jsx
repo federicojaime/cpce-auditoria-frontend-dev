@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import Breadcrumb from '../components/common/Breadcrumb';
 import Loading from '../components/common/Loading';
 import ErrorMessage from '../components/common/ErrorMessage';
+import * as presupuestosService from '../services/presupuestosService';
+import { toast } from 'react-toastify';
 import {
     ChartBarIcon,
     DocumentArrowDownIcon,
@@ -178,15 +180,43 @@ const ReportesCompras = () => {
         'CANCELADA'
     ];
 
-    // Simular carga de datos
+    // Cargar reportes desde la API
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setReportes(reportesDemo);
-            setLoading(false);
-        }, 1500);
+        cargarReportes();
+    }, []);
 
-        return () => clearTimeout(timer);
-    }, [filtros]);
+    const cargarReportes = async () => {
+        try {
+            setLoading(true);
+            setError('');
+
+            const params = {
+                desde: filtros.fechaDesde,
+                hasta: filtros.fechaHasta
+            };
+
+            if (filtros.proveedor !== 'TODOS') {
+                params.proveedor = filtros.proveedor;
+            }
+
+            if (filtros.estado !== 'TODOS') {
+                params.estado = filtros.estado;
+            }
+
+            const response = await presupuestosService.getReporteCompras(params);
+
+            if (response.success && response.data) {
+                setReportes(response.data);
+            }
+
+        } catch (error) {
+            console.error('Error cargando reportes:', error);
+            setError(error.message || 'Error al cargar los reportes');
+            toast.error('Error al cargar reportes de compras');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Manejar cambio de filtros
     const handleFiltroChange = (campo, valor) => {
@@ -198,37 +228,21 @@ const ReportesCompras = () => {
 
     // Aplicar filtros
     const aplicarFiltros = () => {
-        setLoading(true);
-        // Simular recarga de datos
-        setTimeout(() => {
-            setReportes({
-                ...reportesDemo,
-                resumenGeneral: {
-                    ...reportesDemo.resumenGeneral,
-                    periodo: `${filtros.fechaDesde} al ${filtros.fechaHasta}`
-                }
-            });
-            setLoading(false);
-        }, 1000);
+        cargarReportes();
     };
 
     // Generar reporte Excel
     const generarReporteExcel = async () => {
         try {
             setGenerandoReporte(true);
-            
-            // Simular generación de reporte
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Simular descarga
-            const link = document.createElement('a');
-            link.href = '#';
-            link.download = `reporte_compras_${filtros.fechaDesde}_${filtros.fechaHasta}.xlsx`;
-            link.click();
-            
-            alert('Reporte Excel generado y descargado correctamente');
+
+            await presupuestosService.exportarReporteExcel(filtros);
+
+            toast.success('Reporte Excel descargado correctamente');
         } catch (error) {
-            setError('Error al generar el reporte Excel');
+            console.error('Error al generar reporte:', error);
+            setError(error.message || 'Error al generar el reporte Excel');
+            toast.error('Error al generar el reporte Excel');
         } finally {
             setGenerandoReporte(false);
         }

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { auditoriasService } from '../../services/auditoriasService';
 import TableWithFilters from '../../components/common/TableWithFilters';
 import {
     EyeIcon,
@@ -168,30 +169,25 @@ const AltoCostoHistoricas = () => {
 
     const handleExportExcel = async () => {
         try {
-            const queryParams = new URLSearchParams();
-            if (searchTerm) queryParams.append('search', searchTerm);
-            queryParams.append('tipo', 'alto-costo');
+            setError('');
 
-            const url = `/auditorias/historicas/excel?${queryParams.toString()}`;
-            const response = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('cpce_token')}`
-                }
+            // Validar que hay datos para exportar
+            if (!auditorias || auditorias.length === 0) {
+                setError('No hay datos para exportar');
+                return;
+            }
+
+            console.log('Exportando auditorías alto costo históricas:', auditorias.length);
+
+            // Usar exportarExcelConDatos para exportar los datos actuales
+            const result = await auditoriasService.exportarExcelConDatos(auditorias, {
+                tipo: 'alto-costo-historicas',
+                fecha: new Date().toISOString().split('T')[0],
+                searchTerm: searchTerm || null
             });
 
-            if (response.ok) {
-                const blob = await response.blob();
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = downloadUrl;
-                link.download = `auditorias-alto-costo-historicas-${new Date().toISOString().slice(0, 10)}.xlsx`;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                window.URL.revokeObjectURL(downloadUrl);
-            } else {
-                const result = await response.json();
-                setError(result.message || 'Error al generar el archivo Excel');
+            if (!result.success) {
+                setError(result.message);
             }
         } catch (error) {
             console.error('Error exportando Excel:', error);

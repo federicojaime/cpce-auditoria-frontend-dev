@@ -171,8 +171,21 @@ const AuditoriasPendientes = () => {
 
     const handleExportExcel = async () => {
         try {
-            const fecha = new Date().toISOString().slice(0, 7);
-            const result = await auditoriasService.generarExcel(fecha);
+            setError('');
+
+            // Validar que hay datos para exportar
+            if (!auditorias || auditorias.length === 0) {
+                setError('No hay datos para exportar');
+                return;
+            }
+
+            console.log('Exportando auditorías pendientes:', auditorias.length);
+
+            // Usar exportarExcelConDatos para exportar los datos actuales
+            const result = await auditoriasService.exportarExcelConDatos(auditorias, {
+                tipo: 'pendientes',
+                fecha: new Date().toISOString().split('T')[0]
+            });
 
             if (!result.success) {
                 setError(result.message);

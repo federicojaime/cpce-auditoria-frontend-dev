@@ -51,7 +51,7 @@ const Footer = () => {
                         </p>
                         <div className="hidden sm:block h-4 w-px bg-gray-300" />
                         <p className="text-xs text-gray-400">
-                            CPCE Córdoba - Sistema de Auditorías
+                            Sistema de Auditorías
                         </p>
                     </div>
 
