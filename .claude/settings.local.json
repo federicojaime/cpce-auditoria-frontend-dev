@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Read(//tmp/scp29344/var/www/test1.recetasalud.ar/receta/**)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(git log:*)",
+      "Read(//c/Users/FNJai/Pictures/Desktop/vademecum marcelo/ECONOMICAS-FRONTEND-main (1)/ECONOMICAS-FRONTEND-main/**)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm run build:*)",
+      "Bash(tee:*)",
+      "Bash(npm install:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

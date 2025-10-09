@@ -381,7 +381,7 @@ const Estadisticas = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-4xl font-bold mb-2">📊 Estadísticas Avanzadas</h1>
-                            <p className="text-blue-100 text-lg">Panel de métricas y análisis del sistema CPCE</p>
+                            <p className="text-blue-100 text-lg">Panel de métricas y análisis del sistema de Auditoría</p>
                             <div className="mt-4 flex items-center space-x-4">
                                 <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm">
                                     Actualizado hace 5 min
