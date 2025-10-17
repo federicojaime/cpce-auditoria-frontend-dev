@@ -1,15 +1,15 @@
-// src/pages/AltoCosto/ProcesarAuditoriaAltoCostoDemo.jsx - DEMO SIMPLIFICADO
+// src/pages/AltoCosto/ProcesarAuditoriaAltoCosto.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Loading from '../../components/common/Loading';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import Breadcrumb from '../../components/common/Breadcrumb';
+import ConfirmModal from '../../components/common/ConfirmModal';
 import {
     UserIcon,
     CheckCircleIcon,
     XMarkIcon,
-    PaperAirplaneIcon,
     CurrencyDollarIcon,
     ExclamationTriangleIcon,
     HeartIcon,
@@ -17,104 +17,34 @@ import {
     ShoppingCartIcon
 } from '@heroicons/react/24/outline';
 
-const ProcesarAuditoriaAltoCostoDemo = () => {
+const ProcesarAuditoriaAltoCosto = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
 
     // Estados principales
+    const [auditoria, setAuditoria] = useState(null);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    // Estados para medicamentos (sin meses)
+    // Estados para modales de confirmación
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [showRejectModal, setShowRejectModal] = useState(false);
+
+    // Estados para medicamentos (sin meses para alto costo)
     const [medicamentosSeleccionados, setMedicamentosSeleccionados] = useState({});
     const [coberturas, setCoberturas] = useState({});
     const [tiposCobertura, setTiposCobertura] = useState({});
     const [justificacionesMedicas, setJustificacionesMedicas] = useState({});
     const [notaGeneral, setNotaGeneral] = useState('');
 
-    // Datos demo de la auditoría de alto costo
-    const auditoriaDemo = {
-        id: id || 'AC-2024-001',
-        paciente: {
-            apellido: 'González',
-            nombre: 'María Elena',
-            dni: '32456789',
-            edad: 45,
-            sexo: 'F',
-            telefono: '351-5551234',
-            email: 'maria.gonzalez@email.com',
-            peso: '68'
-        },
-        medico: {
-            nombre: 'DR. ALEJANDRA MARÍA NIORO',
-            matricula: '255967',
-            especialidad: 'ONCOLOGÍA CLÍNICA'
-        },
-        diagnostico: {
-            diagnostico: 'Neoplasia maligna de mama. Tratamiento oncológico de alto costo',
-            fechaemision: '2025-03-31T17:59:51.000Z',
-            diagnostico2: 'Paciente femenina de 45 años con diagnóstico de carcinoma ductal invasivo de mama izquierda, estadio IIIB. Ha completado cirugía y quimioterapia neoadyuvante. Requiere tratamiento de mantenimiento con terapia dirigida de alto costo.'
-        },
-        medicamentos: [
-            {
-                id: 1,
-                idreceta: 'REC001',
-                renglon: 1,
-                nombrecomercial: 'HERCEPTIN 440MG',
-                monodroga: 'Trastuzumab',
-                presentacion: 'Vial 440mg polvo liofilizado',
-                laboratorio: 'Roche',
-                cantidad: 1,
-                dosis: '6mg/kg cada 21 días',
-                cobertura: '100',
-                tipo: 'ONC',
-                costo_estimado: 'CRITICO',
-                requiere_autorizacion: true,
-                justificacion_medica: ''
-            },
-            {
-                id: 2,
-                idreceta: 'REC001',
-                renglon: 2,
-                nombrecomercial: 'PERJETA 420MG',
-                monodroga: 'Pertuzumab',
-                presentacion: 'Vial 420mg/14ml',
-                laboratorio: 'Roche',
-                cantidad: 1,
-                dosis: '420mg cada 21 días',
-                cobertura: '100',
-                tipo: 'ONC',
-                costo_estimado: 'CRITICO',
-                requiere_autorizacion: true,
-                justificacion_medica: ''
-            },
-            {
-                id: 3,
-                idreceta: 'REC001',
-                renglon: 3,
-                nombrecomercial: 'ZOMETA 4MG',
-                monodroga: 'Ácido Zoledrónico',
-                presentacion: 'Vial 4mg/5ml',
-                laboratorio: 'Novartis',
-                cantidad: 1,
-                dosis: '4mg cada 28 días',
-                cobertura: '100',
-                tipo: 'ONC',
-                costo_estimado: 'ALTO',
-                requiere_autorizacion: true,
-                justificacion_medica: ''
-            }
-        ]
-    };
-
     // Breadcrumb configuration
     const breadcrumbItems = [
         { name: 'Auditoría Alto Costo', href: '/alto-costo' },
         { name: 'Pendientes', href: '/alto-costo/pendientes' },
-        { name: `Auditoría #${auditoriaDemo.id}`, href: `/alto-costo/auditoria/${auditoriaDemo.id}`, current: true }
+        { name: `Auditoría #${id}`, href: `/alto-costo/auditoria/${id}`, current: true }
     ];
 
     // Opciones de cobertura para alto costo
@@ -133,31 +63,82 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
         { value: 'INM', label: 'INM - Inmunosupresores' }
     ];
 
-    // Simular carga inicial
+    // Cargar datos de la auditoría desde el endpoint
     useEffect(() => {
-        const timer = setTimeout(() => {
-            // Inicializar estados con datos demo
-            const seleccionadosInit = {};
-            const coberturasInit = {};
-            const tiposInit = {};
-            const justificacionesInit = {};
+        const cargarAuditoria = async () => {
+            try {
+                setLoading(true);
+                setError('');
 
-            auditoriaDemo.medicamentos.forEach((med) => {
-                seleccionadosInit[med.renglon] = false; // Inicialmente no seleccionados
-                coberturasInit[med.renglon] = med.cobertura || '100';
-                tiposInit[med.renglon] = med.tipo || 'ONC';
-                justificacionesInit[med.renglon] = med.justificacion_medica || '';
-            });
+                console.log('Cargando auditoría de alto costo ID:', id);
 
-            setMedicamentosSeleccionados(seleccionadosInit);
-            setCoberturas(coberturasInit);
-            setTiposCobertura(tiposInit);
-            setJustificacionesMedicas(justificacionesInit);
-            setLoading(false);
-        }, 1000);
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/alto-costo/${id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('cpce_token')}`
+                    }
+                });
 
-        return () => clearTimeout(timer);
-    }, []);
+                console.log('Response status:', response.status);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                console.log('=== RESPUESTA COMPLETA DEL SERVIDOR ALTO COSTO ===');
+                console.log('result:', result);
+                console.log('result.success:', result.success);
+                console.log('result.auditoria:', result.auditoria);
+
+                if (result.success && result.auditoria) {
+                    console.log('Datos del paciente:', result.auditoria.paciente);
+                    console.log('Datos del médico:', result.auditoria.medico);
+                    console.log('Medicamentos:', result.auditoria.medicamentos);
+
+                    setAuditoria(result.auditoria);
+
+                    // Inicializar estados basados en los medicamentos
+                    if (result.auditoria.medicamentos && result.auditoria.medicamentos.length > 0) {
+                        const seleccionadosInit = {};
+                        const coberturasInit = {};
+                        const tiposInit = {};
+                        const justificacionesInit = {};
+
+                        result.auditoria.medicamentos.forEach((med) => {
+                            const renglon = med.nro_orden;
+                            seleccionadosInit[renglon] = false; // Inicialmente no seleccionados
+                            coberturasInit[renglon] = med.porcentajecobertura || 100;
+                            tiposInit[renglon] = 'ONC'; // Por defecto oncológico para alto costo
+                            justificacionesInit[renglon] = med.observacion || '';
+                        });
+
+                        setMedicamentosSeleccionados(seleccionadosInit);
+                        setCoberturas(coberturasInit);
+                        setTiposCobertura(tiposInit);
+                        setJustificacionesMedicas(justificacionesInit);
+                    }
+
+                    // Inicializar nota general si existe
+                    setNotaGeneral(result.auditoria.nota || '');
+
+                    setError('');
+                } else {
+                    console.error('Respuesta inválida:', result);
+                    setError(result.message || 'No se pudo cargar la auditoría de alto costo');
+                    setAuditoria(null);
+                }
+            } catch (error) {
+                console.error('Error cargando auditoría de alto costo:', error);
+                setError(`Error al cargar los datos: ${error.message}`);
+                setAuditoria(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        cargarAuditoria();
+    }, [id]);
 
     // ===== MANEJADORES DE EVENTOS =====
 
@@ -198,8 +179,8 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
 
     // ===== ACCIONES PRINCIPALES =====
 
-    // Enviar a Compras (nueva funcionalidad para alto costo)
-    const handleEnviarCompras = async () => {
+    // Enviar a Compras (procesar auditoría de alto costo)
+    const handleEnviarComprasClick = () => {
         const medicamentosAprobados = Object.entries(medicamentosSeleccionados)
             .filter(([_, aprobado]) => aprobado)
             .map(([renglon]) => renglon);
@@ -209,57 +190,149 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
             return;
         }
 
-        if (!window.confirm('¿Está seguro de enviar esta auditoría de alto costo al área de Compras para cotización de proveedores?')) {
-            return;
-        }
+        // Mostrar modal de confirmación
+        setShowConfirmModal(true);
+    };
 
+    const handleEnviarCompras = async () => {
         try {
             setProcessing(true);
             setError('');
 
-            // Simular envío a compras
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Construir strings en formato: "idreceta_nroorden,idreceta_nroorden"
+            const chequedos = [];
+            const nochequeados = [];
 
-            setSuccess('✅ Auditoría de alto costo enviada al área de Compras exitosamente');
+            auditoria.medicamentos.forEach(med => {
+                const renglon = med.nro_orden;
+                const idStr = `${id}_${renglon}`;
 
-            setTimeout(() => {
-                navigate('/alto-costo/pendientes');
-            }, 2500);
+                if (medicamentosSeleccionados[renglon] === true) {
+                    chequedos.push(idStr);
+                } else if (medicamentosSeleccionados[renglon] === false) {
+                    nochequeados.push(idStr);
+                }
+            });
+
+            // Formato esperado por el backend
+            const datosAuditoria = {
+                chequedos: chequedos.join(','),        // "17_1,17_2"
+                nochequeados: nochequeados.join(','),  // "17_3"
+                nota: notaGeneral
+            };
+
+            // Agregar coberturas y tipos para cada medicamento
+            auditoria.medicamentos.forEach((med, index) => {
+                const renglon = med.nro_orden;
+                const numeroMedicamento = index + 1;
+
+                // Solo incluir coberturas y tipos para medicamentos aprobados
+                if (medicamentosSeleccionados[renglon] === true) {
+                    datosAuditoria[`cobert${numeroMedicamento}`] = coberturas[renglon] || 100;
+                    datosAuditoria[`cobert2_${numeroMedicamento}`] = tiposCobertura[renglon] || 'ONC';
+
+                    // Agregar justificación médica si existe
+                    if (justificacionesMedicas[renglon]) {
+                        datosAuditoria[`justificacion_${numeroMedicamento}`] = justificacionesMedicas[renglon];
+                    }
+                }
+            });
+
+            console.log('📤 Enviando auditoría de alto costo a procesar:', datosAuditoria);
+
+            // Llamada al endpoint de procesamiento
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/alto-costo/${id}/procesar`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('cpce_token')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(datosAuditoria)
+            });
+
+            const result = await response.json();
+
+            console.log('📥 Respuesta del servidor:', result);
+
+            if (result.success) {
+                setSuccess('✅ Auditoría de alto costo procesada y enviada al área de Compras exitosamente. El área de Compras gestionará la cotización con proveedores.');
+
+                // NO generamos PDF automáticamente en Alto Costo
+                // El PDF solo se genera manualmente cuando se necesite
+                console.log('✅ Auditoría enviada a Compras - Sin generación automática de PDF');
+
+                setTimeout(() => {
+                    navigate('/alto-costo/pendientes');
+                }, 3500);
+
+            } else {
+                setError(result.message || 'Error al procesar la auditoría de alto costo');
+            }
 
         } catch (error) {
-            console.error('Error enviando a compras:', error);
-            setError('Error inesperado al enviar a compras');
+            console.error('💥 Error enviando a compras:', error);
+            setError('Error inesperado al procesar la auditoría de alto costo');
         } finally {
             setProcessing(false);
         }
     };
 
     // Rechazar auditoría completa
-    const handleRechazarAuditoria = async () => {
-        if (!window.confirm('¿Está seguro de rechazar toda la auditoría de alto costo?')) {
-            return;
-        }
+    const handleRechazarAuditoriaClick = () => {
+        // Mostrar modal de confirmación
+        setShowRejectModal(true);
+    };
 
+    const handleRechazarAuditoria = async () => {
         try {
             setProcessing(true);
             setError('');
 
-            // Simular rechazo
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            // Construir string de todos los medicamentos rechazados
+            const nochequeados = auditoria.medicamentos.map(med => {
+                return `${id}_${med.nro_orden}`;
+            });
 
-            setSuccess('✅ Auditoría de alto costo rechazada correctamente');
+            // Formato esperado por el backend para rechazo total
+            const datosRechazo = {
+                chequedos: '',  // Ninguno aprobado
+                nochequeados: nochequeados.join(','),  // Todos rechazados
+                cobert1: 0,
+                cobert2_1: 'RECHAZADO',
+                nota: notaGeneral || 'Auditoría de alto costo rechazada por el auditor'
+            };
 
-            setTimeout(() => {
-                navigate('/alto-costo/pendientes');
-            }, 2000);
+            console.log('❌ Rechazando auditoría de alto costo:', datosRechazo);
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/alto-costo/${id}/procesar`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('cpce_token')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(datosRechazo)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                setSuccess('✅ Auditoría de alto costo rechazada correctamente');
+
+                setTimeout(() => {
+                    navigate('/alto-costo/pendientes');
+                }, 2000);
+            } else {
+                setError(result.message || 'Error al rechazar la auditoría');
+            }
 
         } catch (error) {
-            console.error('Error rechazando auditoría:', error);
+            console.error('💥 Error rechazando auditoría:', error);
             setError('Error inesperado al rechazar auditoría');
         } finally {
             setProcessing(false);
         }
     };
+
 
     // ===== FUNCIONES AUXILIARES =====
 
@@ -277,7 +350,7 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
 
     // Calcular resumen de selección
     const calcularResumen = () => {
-        const totalMedicamentos = auditoriaDemo.medicamentos.length;
+        const totalMedicamentos = auditoria?.medicamentos?.length || 0;
         const aprobados = Object.values(medicamentosSeleccionados).filter(Boolean).length;
         const rechazados = totalMedicamentos - aprobados;
 
@@ -290,6 +363,18 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
         return (
             <div className="p-4 lg:p-6">
                 <Loading text="🔄 Cargando auditoría de alto costo..." />
+            </div>
+        );
+    }
+
+    if (error && !auditoria) {
+        return (
+            <div className="p-4 lg:p-6 space-y-6">
+                <Breadcrumb items={breadcrumbItems} />
+                <ErrorMessage
+                    message={error}
+                    onRetry={() => window.location.reload()}
+                />
             </div>
         );
     }
@@ -320,6 +405,7 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
                     </div>
                 </div>
             )}
+
 
             {/* Card principal */}
             <div className="bg-white rounded-lg shadow-lg border-2 border-orange-300 overflow-hidden">
@@ -354,32 +440,32 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
                                 <div className="grid grid-cols-2 gap-x-3 text-sm">
                                     <div>
                                         <span className="text-gray-600 font-medium">Apellido:</span>
-                                        <div className="font-semibold text-gray-900">{auditoriaDemo.paciente.apellido}</div>
+                                        <div className="font-semibold text-gray-900">{auditoria?.paciente?.apellido || 'Sin datos'}</div>
                                     </div>
                                     <div>
                                         <span className="text-gray-600 font-medium">Nombre:</span>
-                                        <div className="font-semibold text-gray-900">{auditoriaDemo.paciente.nombre}</div>
+                                        <div className="font-semibold text-gray-900">{auditoria?.paciente?.nombre || 'Sin datos'}</div>
                                     </div>
                                     <div>
                                         <span className="text-gray-600 font-medium">DNI:</span>
-                                        <div className="font-semibold text-blue-700 font-mono">{auditoriaDemo.paciente.dni}</div>
+                                        <div className="font-semibold text-blue-700 font-mono">{auditoria?.paciente?.dni || 'Sin datos'}</div>
                                     </div>
                                     <div>
                                         <span className="text-gray-600 font-medium">Sexo:</span>
-                                        <div className="font-semibold text-gray-900">{auditoriaDemo.paciente.sexo}</div>
+                                        <div className="font-semibold text-gray-900">{auditoria?.paciente?.sexo || 'Sin datos'}</div>
                                     </div>
                                     <div>
                                         <span className="text-gray-600 font-medium">Edad:</span>
-                                        <div className="font-semibold text-gray-900">{auditoriaDemo.paciente.edad} años</div>
+                                        <div className="font-semibold text-gray-900">{auditoria?.paciente?.edad ? `${auditoria.paciente.edad} años` : 'Sin datos'}</div>
                                     </div>
                                     <div>
                                         <span className="text-gray-600 font-medium">Peso:</span>
-                                        <div className="font-semibold text-gray-900">{auditoriaDemo.paciente.peso} kg</div>
+                                        <div className="font-semibold text-gray-900">{auditoria?.paciente?.peso || 'Sin datos'} kg</div>
                                     </div>
                                 </div>
                                 <div className="pt-2 border-t border-gray-200">
                                     <span className="text-gray-600 font-medium text-sm">Teléfono:</span>
-                                    <div className="font-semibold text-sm text-gray-900">{auditoriaDemo.paciente.telefono}</div>
+                                    <div className="font-semibold text-sm text-gray-900">{auditoria?.paciente?.telefono || '-'}</div>
                                 </div>
                             </div>
                         </div>
@@ -395,12 +481,12 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
                             <div className="p-4 space-y-3 text-sm">
                                 <div>
                                     <span className="text-orange-700 font-medium">Profesional:</span>
-                                    <div className="font-semibold text-orange-900">{auditoriaDemo.medico.nombre}</div>
-                                    <div className="text-orange-600 font-medium text-xs mt-1">MP-{auditoriaDemo.medico.matricula}</div>
+                                    <div className="font-semibold text-orange-900">{auditoria?.medico?.nombre_completo || 'Sin datos'}</div>
+                                    <div className="text-orange-600 font-medium text-xs mt-1">MP-{auditoria?.medico?.matricula || 'N/A'}</div>
                                 </div>
                                 <div>
                                     <span className="text-orange-700 font-medium">Especialidad:</span>
-                                    <div className="font-semibold text-orange-800">{auditoriaDemo.medico.especialidad}</div>
+                                    <div className="font-semibold text-orange-800">{auditoria?.medico?.especialidad || 'Sin especialidad'}</div>
                                 </div>
                                 <div className="mt-3 p-2 bg-orange-100 rounded border border-orange-300">
                                     <div className="flex items-center text-xs text-orange-800">
@@ -422,15 +508,15 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
                             <div className="p-4 space-y-3">
                                 <div className="bg-red-100 border border-red-300 rounded-md p-3">
                                     <div className="font-semibold text-red-900 text-sm">
-                                        {auditoriaDemo.diagnostico.diagnostico}
+                                        {auditoria?.recetas?.[0]?.diagnostico || 'Sin diagnóstico'}
                                     </div>
                                 </div>
 
-                                {auditoriaDemo.diagnostico.diagnostico2 && (
+                                {auditoria?.recetas?.[0]?.diagnostico2 && (
                                     <div className="bg-white border border-red-200 rounded p-3 text-xs">
                                         <div className="text-red-700">
                                             <span className="font-medium">Historia clínica:</span><br />
-                                            <div className="mt-1">{auditoriaDemo.diagnostico.diagnostico2}</div>
+                                            <div className="mt-1">{auditoria.recetas[0].diagnostico2}</div>
                                         </div>
                                     </div>
                                 )}
@@ -439,7 +525,7 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
                                     <div className="flex items-start">
                                         <CurrencyDollarIcon className="h-4 w-4 text-red-600 mt-0.5 mr-2 flex-shrink-0" />
                                         <div className="text-xs text-red-800">
-                                            <strong>Alto Costo:</strong> Medicamentos oncológicos especializados de alto valor económico
+                                            <strong>Alto Costo:</strong> Medicamentos especializados de alto valor económico
                                         </div>
                                     </div>
                                 </div>
@@ -454,7 +540,7 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
                                 <CurrencyDollarIcon className="h-5 w-5 mr-2" />
                                 MEDICAMENTOS DE ALTO COSTO PARA EVALUACIÓN
                                 <span className="ml-3 text-sm bg-red-100 text-red-700 px-2 py-1 rounded-full">
-                                    {auditoriaDemo.medicamentos.length} medicamento{auditoriaDemo.medicamentos.length !== 1 ? 's' : ''}
+                                    {auditoria?.medicamentos?.length || 0} medicamento{auditoria?.medicamentos?.length !== 1 ? 's' : ''}
                                 </span>
                             </h3>
                         </div>
@@ -482,30 +568,25 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
                                             <th className="px-3 py-3 text-center text-xs font-bold text-gray-800 uppercase">
                                                 TIPO
                                             </th>
-                                            <th className="px-3 py-3 text-center text-xs font-bold text-gray-800 uppercase">
-                                                COSTO
-                                            </th>
                                             <th className="px-4 py-3 text-center text-xs font-bold text-gray-800 uppercase">
                                                 DECISIÓN
                                             </th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {auditoriaDemo.medicamentos.map((medicamento, index) => {
-                                            const aprobado = medicamentosSeleccionados[medicamento.renglon];
+                                        {auditoria?.medicamentos?.map((medicamento, index) => {
+                                            const renglon = medicamento.nro_orden;
+                                            const aprobado = medicamentosSeleccionados[renglon];
 
                                             return (
-                                                <tr key={medicamento.renglon} className={index % 2 === 0 ? 'bg-white' : 'bg-orange-25'}>
+                                                <tr key={renglon} className={index % 2 === 0 ? 'bg-white' : 'bg-orange-25'}>
                                                     {/* Medicamento */}
                                                     <td className="px-4 py-4 text-sm">
                                                         <div className="font-bold text-gray-900">
-                                                            {medicamento.nombrecomercial}
+                                                            {medicamento.nombre_comercial}
                                                         </div>
                                                         <div className="text-xs text-gray-600 mt-1">
                                                             {medicamento.monodroga}
-                                                        </div>
-                                                        <div className="text-xs text-orange-600 mt-1">
-                                                            Lab: {medicamento.laboratorio}
                                                         </div>
                                                     </td>
 
@@ -517,34 +598,34 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
                                                     {/* Cantidad */}
                                                     <td className="px-3 py-4 text-sm text-center">
                                                         <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-800 rounded-full text-xs font-bold">
-                                                            {medicamento.cantidad}
+                                                            {medicamento.cantprescripta}
                                                         </span>
                                                     </td>
 
                                                     {/* Dosis */}
                                                     <td className="px-3 py-4 text-sm text-center text-gray-700">
-                                                        {medicamento.dosis}
+                                                        {medicamento.posologia || '-'}
                                                     </td>
 
                                                     {/* Cobertura */}
                                                     <td className="px-3 py-4 text-center">
-                                                        <input
-                                                            type="number"
-                                                            min="70"
-                                                            max="100"
-                                                            step="10"
-                                                            value={coberturas[medicamento.renglon]}
-                                                            onChange={(e) => handleCoberturaChange(medicamento.renglon, e.target.value)}
-                                                            className="w-16 px-2 py-1 text-sm text-center border-2 border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 font-bold"
-                                                        />
-                                                        <div className="text-xs text-orange-600 font-medium mt-1">%</div>
+                                                        <select
+                                                            value={coberturas[renglon]}
+                                                            onChange={(e) => handleCoberturaChange(renglon, e.target.value)}
+                                                            className="px-2 py-1 text-sm border-2 border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 font-bold"
+                                                        >
+                                                            <option value="70">70%</option>
+                                                            <option value="80">80%</option>
+                                                            <option value="90">90%</option>
+                                                            <option value="100">100%</option>
+                                                        </select>
                                                     </td>
 
                                                     {/* Tipo */}
                                                     <td className="px-3 py-4 text-center">
                                                         <select
-                                                            value={tiposCobertura[medicamento.renglon]}
-                                                            onChange={(e) => handleTipoCoberturaChange(medicamento.renglon, e.target.value)}
+                                                            value={tiposCobertura[renglon]}
+                                                            onChange={(e) => handleTipoCoberturaChange(renglon, e.target.value)}
                                                             className="px-2 py-1 text-xs border-2 border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium"
                                                         >
                                                             {tiposCoberturaMedicamento.map(tipo => (
@@ -555,20 +636,12 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
                                                         </select>
                                                     </td>
 
-                                                    {/* Costo */}
-                                                    <td className="px-3 py-4 text-center">
-                                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">
-                                                            <CurrencyDollarIcon className="h-3 w-3 mr-1" />
-                                                            {medicamento.costo_estimado}
-                                                        </span>
-                                                    </td>
-
                                                     {/* Decisión */}
                                                     <td className="px-4 py-4 text-center">
                                                         <div className="space-y-2">
                                                             <div className="flex justify-center space-x-2">
                                                                 <button
-                                                                    onClick={() => handleMedicamentoChange(medicamento.renglon, true)}
+                                                                    onClick={() => handleMedicamentoChange(renglon, true)}
                                                                     className={`px-3 py-1 text-xs font-medium rounded-md border-2 transition-all ${aprobado
                                                                             ? 'bg-green-100 text-green-800 border-green-300'
                                                                             : 'bg-white text-gray-600 border-gray-300 hover:border-green-300'
@@ -578,7 +651,7 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
                                                                     Aprobar
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => handleMedicamentoChange(medicamento.renglon, false)}
+                                                                    onClick={() => handleMedicamentoChange(renglon, false)}
                                                                     className={`px-3 py-1 text-xs font-medium rounded-md border-2 transition-all ${aprobado === false
                                                                             ? 'bg-red-100 text-red-800 border-red-300'
                                                                             : 'bg-white text-gray-600 border-gray-300 hover:border-red-300'
@@ -631,39 +704,42 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
 
                         <div className="border-2 border-t-0 border-blue-200 rounded-b-lg bg-white">
                             <div className="p-4 space-y-4">
-                                {auditoriaDemo.medicamentos.map((medicamento, index) => (
-                                    <div key={`justif-${medicamento.renglon}`} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                                        <div className="flex items-start space-x-4">
-                                            <div className="flex-shrink-0">
-                                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                                    <span className="text-sm font-bold text-blue-800">
-                                                        {index + 1}
-                                                    </span>
+                                {auditoria?.medicamentos?.map((medicamento, index) => {
+                                    const renglon = medicamento.nro_orden;
+                                    return (
+                                        <div key={`justif-${renglon}`} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                            <div className="flex items-start space-x-4">
+                                                <div className="flex-shrink-0">
+                                                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                                        <span className="text-sm font-bold text-blue-800">
+                                                            {index + 1}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="mb-2">
-                                                    <h4 className="font-semibold text-gray-900">
-                                                        {medicamento.nombrecomercial}
-                                                    </h4>
-                                                    <p className="text-sm text-gray-600">
-                                                        {medicamento.monodroga} - {tiposCobertura[medicamento.renglon]}
-                                                    </p>
-                                                </div>
-                                                <textarea
-                                                    value={justificacionesMedicas[medicamento.renglon] || ''}
-                                                    onChange={(e) => handleJustificacionChange(medicamento.renglon, e.target.value)}
-                                                    rows={3}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    placeholder={`Justificación médica para ${medicamento.nombrecomercial}. Incluya criterios clínicos, estudios de laboratorio, respuesta a tratamientos previos, etc.`}
-                                                />
-                                                <div className="mt-2 text-xs text-gray-500">
-                                                    Caracteres: {(justificacionesMedicas[medicamento.renglon] || '').length}/500
+                                                <div className="flex-1">
+                                                    <div className="mb-2">
+                                                        <h4 className="font-semibold text-gray-900">
+                                                            {medicamento.nombre_comercial}
+                                                        </h4>
+                                                        <p className="text-sm text-gray-600">
+                                                            {medicamento.monodroga} - {tiposCobertura[renglon]}
+                                                        </p>
+                                                    </div>
+                                                    <textarea
+                                                        value={justificacionesMedicas[renglon] || ''}
+                                                        onChange={(e) => handleJustificacionChange(renglon, e.target.value)}
+                                                        rows={3}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                        placeholder={`Justificación médica para ${medicamento.nombre_comercial}. Incluya criterios clínicos, estudios de laboratorio, respuesta a tratamientos previos, etc.`}
+                                                    />
+                                                    <div className="mt-2 text-xs text-gray-500">
+                                                        Caracteres: {(justificacionesMedicas[renglon] || '').length}/500
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -700,7 +776,7 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
                     {/* Botones de acción especializados para alto costo */}
                     <div className="flex justify-center space-x-4 pt-6 border-t-2 border-gray-200">
                         <button
-                            onClick={handleRechazarAuditoria}
+                            onClick={handleRechazarAuditoriaClick}
                             disabled={processing}
                             className="inline-flex items-center px-6 py-3 border-2 border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-all duration-200"
                         >
@@ -709,17 +785,18 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
                         </button>
 
                         <button
-                            onClick={handleEnviarCompras}
+                            onClick={handleEnviarComprasClick}
                             disabled={processing || aprobados === 0}
                             className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-all duration-200 shadow-lg"
                         >
                             <ShoppingCartIcon className="h-4 w-4 mr-2" />
-                            {processing ? 'Enviando...' : 'Enviar a Compras'}
+                            {processing ? 'Enviando...' : 'Procesar y Enviar a Compras'}
                         </button>
 
                         <button
                             onClick={() => navigate('/alto-costo/pendientes')}
-                            className="inline-flex items-center px-6 py-3 border-2 border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200"
+                            disabled={processing}
+                            className="inline-flex items-center px-6 py-3 border-2 border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 transition-all duration-200"
                         >
                             Cancelar
                         </button>
@@ -742,43 +819,64 @@ const ProcesarAuditoriaAltoCostoDemo = () => {
                                             <ul className="list-disc list-inside text-xs mt-1 space-y-1">
                                                 <li>Evaluación médica especializada</li>
                                                 <li>Aprobación por auditor de alto costo</li>
-                                                <li>Envío al área de Compras</li>
+                                                <li><strong>Envío al área de Compras (SIN PDF)</strong></li>
                                                 <li>Cotización con proveedores especializados</li>
+                                                <li>Generación de presupuestos</li>
                                                 <li>Autorización final y entrega</li>
                                             </ul>
                                         </div>
                                         <div>
-                                            <h4 className="font-medium">Información para Compras:</h4>
+                                            <h4 className="font-medium">Información Enviada a Compras:</h4>
                                             <ul className="list-disc list-inside text-xs mt-1 space-y-1">
                                                 <li>Medicamentos aprobados y cantidades</li>
                                                 <li>Porcentajes de cobertura autorizados</li>
                                                 <li>Justificaciones médicas detalladas</li>
-                                                <li>Urgencia del tratamiento</li>
+                                                <li>Tipo de cobertura (ONC, HO, BIAC, etc.)</li>
+                                                <li>Observaciones generales del caso</li>
                                                 <li>Datos completos del paciente y médico</li>
                                             </ul>
                                         </div>
+                                    </div>
+                                    <div className="mt-3 p-2 bg-blue-100 rounded border border-blue-300">
+                                        <p className="text-xs text-blue-900">
+                                            <strong>Nota importante:</strong> Al enviar a Compras, NO se genera automáticamente el PDF.
+                                            El área de Compras gestionará las cotizaciones con proveedores y generará el PDF cuando sea necesario.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    {/* Demo indicator */}
-                    <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                        <div className="flex items-center justify-center mb-2">
-                            <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500 mr-2" />
-                            <span className="text-sm font-medium text-yellow-800">Demo - Sistema de Auditoría Alto Costo</span>
-                        </div>
-                        <p className="text-xs text-yellow-700">
-                            Esta es una demostración del proceso de auditoría para medicamentos de alto costo.
-                            Los datos mostrados son ficticios y el flujo termina enviando la solicitud al área de Compras
-                            para cotización con proveedores especializados.
-                        </p>
-                    </div>
                 </div>
             </div>
+
+            {/* Modal de confirmación para enviar a compras */}
+            <ConfirmModal
+                isOpen={showConfirmModal}
+                onClose={() => setShowConfirmModal(false)}
+                onConfirm={handleEnviarCompras}
+                title="Enviar a Compras"
+                message="¿Está seguro de enviar esta auditoría de alto costo al área de Compras para cotización de proveedores?"
+                confirmText="Enviar a Compras"
+                cancelText="Cancelar"
+                type="warning"
+                confirmButtonColor="blue"
+            />
+
+            {/* Modal de confirmación para rechazar */}
+            <ConfirmModal
+                isOpen={showRejectModal}
+                onClose={() => setShowRejectModal(false)}
+                onConfirm={handleRechazarAuditoria}
+                title="Rechazar Auditoría"
+                message="¿Está seguro de rechazar toda la auditoría de alto costo? Esta acción no se puede deshacer."
+                confirmText="Rechazar"
+                cancelText="Cancelar"
+                type="danger"
+                confirmButtonColor="red"
+            />
         </div>
     );
 };
 
-export default ProcesarAuditoriaAltoCostoDemo;
+export default ProcesarAuditoriaAltoCosto;

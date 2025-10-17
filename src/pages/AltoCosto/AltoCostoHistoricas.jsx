@@ -83,7 +83,7 @@ const AltoCostoHistoricas = () => {
             className: 'whitespace-nowrap text-center',
             render: (row) => (
                 <Link
-                    to={`/alto-costo/auditoria/demo`}
+                    to={`/alto-costo/auditoria/${row.id}`}
                     className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                     title="Ver auditoría"
                 >
@@ -104,16 +104,15 @@ const AltoCostoHistoricas = () => {
             if (searchTerm) queryParams.append('search', searchTerm);
             queryParams.append('page', filters.page);
             queryParams.append('limit', filters.limit);
-            queryParams.append('tipo', 'alto-costo'); // Diferenciador para alto costo
 
-            const url = `/auditorias/historicas?${queryParams.toString()}`;
+            // Usar el endpoint específico de alto costo
+            const url = `/alto-costo/historicas?${queryParams.toString()}`;
 
             console.log('URL completa Alto Costo:', `${import.meta.env.VITE_API_URL}${url}`);
             console.log('Parámetros enviados:', {
                 page: filters.page,
                 limit: filters.limit,
-                search: searchTerm,
-                tipo: 'alto-costo'
+                search: searchTerm
             });
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}${url}`, {

@@ -178,36 +178,57 @@ const SolicitarPresupuestos = () => {
                 .map(id => auditorias.find(a => a.id === id))
                 .filter(Boolean);
 
-            // Preparar medicamentos de todas las auditorías
-            const medicamentos = [];
-            auditoriasArray.forEach(auditoria => {
-                if (auditoria.medicamentos && Array.isArray(auditoria.medicamentos)) {
-                    auditoria.medicamentos.forEach(med => {
-                        medicamentos.push({
-                            nombre: med.nombre,
-                            cantidad: med.cantidad,
-                            unidad: 'unidad'
-                        });
+            let totalProveedoresContactados = 0;
+            const errores = [];
+
+            // Enviar cada auditoría por separado según el nuevo formato
+            for (const auditoria of auditoriasArray) {
+                try {
+                    // Obtener detalles completos de la auditoría (con medicamentos y nro_orden)
+                    const detalleResponse = await fetch(`${import.meta.env.VITE_API_URL}/compras/${auditoria.id}`, {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('cpce_token')}`
+                        }
                     });
+
+                    if (!detalleResponse.ok) {
+                        throw new Error(`Error al obtener detalles de auditoría ${auditoria.id}`);
+                    }
+
+                    const detalleData = await detalleResponse.json();
+
+                    if (!detalleData.success || !detalleData.data?.medicamentos) {
+                        throw new Error(`No se encontraron medicamentos para auditoría ${auditoria.id}`);
+                    }
+
+                    // Preparar formato esperado por el endpoint
+                    const medicamentos = detalleData.data.medicamentos.map(med => ({
+                        nro_orden: med.nro_orden,
+                        proveedores: Array.from(proveedoresSeleccionados) // Todos los proveedores seleccionados
+                    }));
+
+                    const datos = {
+                        medicamentos: medicamentos,
+                        observaciones: `Solicitud de cotización para ${medicamentos.length} medicamento(s) de alto costo`
+                    };
+
+                    // Enviar a proveedores usando el nuevo endpoint
+                    const response = await presupuestosService.solicitarPresupuesto(auditoria.id, datos);
+
+                    if (response.success) {
+                        totalProveedoresContactados += response.proveedoresContactados || proveedoresSeleccionados.size;
+                    }
+
+                } catch (error) {
+                    console.error(`Error procesando auditoría ${auditoria.id}:`, error);
+                    errores.push(`Auditoría #${auditoria.id}: ${error.message}`);
                 }
-            });
+            }
 
-            // Preparar datos para la solicitud
-            const datos = {
-                descripcion: `Solicitud masiva para ${auditoriasArray.length} auditoría(s) de alto costo`,
-                id_auditoria_asociada: auditoriasArray[0]?.id || null,
-                proveedores: Array.from(proveedoresSeleccionados),
-                medicamentos: medicamentos,
-                fecha_limite_respuesta: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 días
-                observaciones: `Incluye auditorías: ${Array.from(auditoriasSeleccionadas).join(', ')}`
-            };
-
-            // Enviar solicitud
-            const response = await presupuestosService.solicitarPresupuesto(datos);
-
-            if (response.success) {
-                setSuccess(`✅ Solicitud creada exitosamente: ${response.data.numero_solicitud}`);
-                toast.success(`Solicitud ${response.data.numero_solicitud} enviada a ${proveedoresSeleccionados.size} proveedores`, {
+            // Mostrar resultados
+            if (errores.length === 0) {
+                setSuccess(`✅ Solicitudes enviadas exitosamente a ${proveedoresSeleccionados.size} proveedores para ${auditoriasArray.length} auditoría(s)`);
+                toast.success(`${auditoriasArray.length} auditoría(s) enviadas a ${proveedoresSeleccionados.size} proveedores`, {
                     autoClose: 5000
                 });
 
@@ -219,10 +240,14 @@ const SolicitarPresupuestos = () => {
                 setTimeout(() => {
                     cargarDatos();
                 }, 2000);
+            } else {
+                const errorMsg = `Algunas solicitudes fallaron:\n${errores.join('\n')}`;
+                setError(errorMsg);
+                toast.error('Algunas solicitudes fallaron. Revisa los detalles.', { autoClose: 7000 });
             }
 
         } catch (error) {
-            console.error('Error al enviar solicitud:', error);
+            console.error('Error al enviar solicitudes:', error);
             setError(error.message || 'Error al enviar las solicitudes de presupuesto');
             toast.error(error.message || 'Error al enviar las solicitudes');
         } finally {

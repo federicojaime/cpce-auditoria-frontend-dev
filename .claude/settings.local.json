@@ -9,7 +9,12 @@
       "Bash(npm run build:*)",
       "Bash(tee:*)",
       "Bash(npm install:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Read(//c/Users/FNJai/Pictures/Desktop/alto costo nuevo/cpce-auditoria-api-dev (1)/cpce-auditoria-api-dev/middleware/**)",
+      "Read(//c/Users/FNJai/Pictures/Desktop/alto costo nuevo/cpce-auditoria-api-dev (1)/cpce-auditoria-api-dev/controllers/**)",
+      "Read(//c/Users/FNJai/Pictures/Desktop/alto costo nuevo/cpce-auditoria-api-dev (1)/cpce-auditoria-api-dev/**)",
+      "Read(//c/Users/FNJai/Pictures/Desktop/alto costo nuevo/cpce-auditoria-api-dev (1)/cpce-auditoria-api-dev/routes/**)"
     ],
     "deny": [],
     "ask": []

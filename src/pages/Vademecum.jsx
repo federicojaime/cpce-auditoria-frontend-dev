@@ -34,7 +34,7 @@ const Vademecum = () => {
     "props": { "pageProps": {} },
     "page": "/",
     "query": {},
-    "buildId": "qyd1RrGAMl6XJJq4QbTKP",
+    "buildId": "VRWwIK4w0pBDBWivCtXzS",
     "nextExport": true,
     "autoExport": true,
     "isFallback": false,
@@ -44,7 +44,7 @@ const Vademecum = () => {
 
   <!-- CSS Files -->
   <link rel="stylesheet" href="https://cpce.recetasalud.ar/vademecum-test/_next/static/css/431944509084d071.css">
-  <link rel="stylesheet" href="https://cpce.recetasalud.ar/vademecum-test/_next/static/css/ad3572720aa218e9.css">
+  <link rel="stylesheet" href="https://cpce.recetasalud.ar/vademecum-test/_next/static/css/5fd2d321e5b02376.css">
 
   <style>
     body {
@@ -69,7 +69,7 @@ const Vademecum = () => {
   <script src="https://cpce.recetasalud.ar/vademecum-test/_next/static/chunks/framework-63157d71ad419e09.js" defer></script>
   <script src="https://cpce.recetasalud.ar/vademecum-test/_next/static/chunks/main-7b07c6a356fe204f.js" defer></script>
   <script src="https://cpce.recetasalud.ar/vademecum-test/_next/static/chunks/pages/_app-d512e81188bdecfb.js" defer></script>
-  <script src="https://cpce.recetasalud.ar/vademecum-test/_next/static/chunks/pages/index-159c513a97cab49b.js" defer></script>
+  <script src="https://cpce.recetasalud.ar/vademecum-test/_next/static/chunks/pages/index-9d89f0e6fdb6bed1.js" defer></script>
 </body>
 </html>
       `;

@@ -116,10 +116,12 @@ const AltoCostoPendientes = () => {
                     <div className="text-sm text-gray-600 font-mono">
                         DNI: {row.dni}
                     </div>
-                    <div className="flex items-center text-xs text-gray-500">
-                        <UserIcon className="h-3 w-3 mr-1" />
-                        {row.edad ? `${row.edad} años` : 'Edad no registrada'} • {row.sexo || 'N/E'}
-                    </div>
+                    {row.edad && (
+                        <div className="flex items-center text-xs text-gray-500">
+                            <UserIcon className="h-3 w-3 mr-1" />
+                            {row.edad} años {row.sexo && `• ${row.sexo}`}
+                        </div>
+                    )}
                 </div>
             )
         },
@@ -134,7 +136,7 @@ const AltoCostoPendientes = () => {
                     </div>
                     <div className="flex items-center text-xs text-gray-500">
                         <CalendarIcon className="h-3 w-3 mr-1" />
-                        {calcularDiasTranscurridos(row.fecha)} días
+                        {calcularDiasTranscurridos(row.fecha) === 0 ? 'HOY' : `${calcularDiasTranscurridos(row.fecha)} días`}
                     </div>
                 </div>
             )
@@ -148,9 +150,6 @@ const AltoCostoPendientes = () => {
                     <div className="text-sm font-medium text-gray-900 truncate" title={row.medico}>
                         {row.medico}
                     </div>
-                    <div className="text-xs text-blue-600">
-                        {row.especialidad || 'Especialista'}
-                    </div>
                     <div className="text-xs text-gray-500">
                         MP: {row.matricula || 'No disponible'}
                     </div>
@@ -162,13 +161,10 @@ const AltoCostoPendientes = () => {
             label: 'Medicamentos',
             className: 'w-24 text-center',
             render: (row) => (
-                <div className="space-y-2">
+                <div className="flex justify-center">
                     <span className="inline-flex items-center justify-center w-8 h-8 bg-orange-100 text-orange-800 rounded-full text-sm font-bold">
-                        {row.renglones || row.total_medicamentos || 1}
+                        {row.renglones || row.total_medicamentos || 0}
                     </span>
-                    <div className="text-xs text-gray-600">
-                        {row.meses || 6} meses
-                    </div>
                 </div>
             )
         },
@@ -276,7 +272,7 @@ const AltoCostoPendientes = () => {
                 return (
                     <div className="flex justify-center space-x-2">
                         <Link
-                            to={`/alto-costo/auditoria/demo`}
+                            to={`/alto-costo/auditoria/${auditoriaId}`}
                             className="inline-flex items-center px-3 py-1 border-2 border-orange-300 rounded-md shadow-sm text-xs font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-orange-500 transition-all duration-200"
                             title="Procesar auditoría de alto costo"
                         >
@@ -294,6 +290,13 @@ const AltoCostoPendientes = () => {
     // Formatear fecha
     const formatearFecha = (fecha) => {
         if (!fecha) return 'Sin fecha';
+
+        // Si ya viene en formato DD-MM-YYYY, devolverla directamente
+        if (typeof fecha === 'string' && fecha.match(/^\d{2}-\d{2}-\d{4}$/)) {
+            return fecha;
+        }
+
+        // Si es otro formato, intentar convertirla
         try {
             return new Date(fecha).toLocaleDateString('es-AR', {
                 day: '2-digit',
@@ -301,7 +304,7 @@ const AltoCostoPendientes = () => {
                 year: 'numeric'
             });
         } catch {
-            return 'Fecha inválida';
+            return fecha || 'Fecha inválida';
         }
     };
 
@@ -309,7 +312,16 @@ const AltoCostoPendientes = () => {
     const calcularDiasTranscurridos = (fecha) => {
         if (!fecha) return 0;
         try {
-            const fechaObj = new Date(fecha);
+            let fechaObj;
+
+            // Si viene en formato DD-MM-YYYY, convertir a Date
+            if (typeof fecha === 'string' && fecha.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                const [dia, mes, anio] = fecha.split('-').map(Number);
+                fechaObj = new Date(anio, mes - 1, dia);
+            } else {
+                fechaObj = new Date(fecha);
+            }
+
             const hoy = new Date();
             const diferencia = hoy - fechaObj;
             return Math.floor(diferencia / (1000 * 60 * 60 * 24));
@@ -355,9 +367,8 @@ const AltoCostoPendientes = () => {
             if (mostrarLoading) setLoading(true);
             setError('');
 
-            // Construir parámetros de consulta
+            // Construir parámetros de consulta para el nuevo endpoint de alto costo
             const parametros = new URLSearchParams();
-            parametros.append('tipo', 'alto-costo');
             parametros.append('page', paginacion.paginaActual);
             parametros.append('limit', paginacion.registrosPorPagina);
 
@@ -367,7 +378,8 @@ const AltoCostoPendientes = () => {
             if (filtros.rangoCosto) parametros.append('rangoCosto', filtros.rangoCosto);
             if (filtros.tipoTratamiento) parametros.append('tipoTratamiento', filtros.tipoTratamiento);
 
-            const url = `/auditorias/pendientes?${parametros.toString()}`;
+            // Usar el endpoint específico de alto costo
+            const url = `/alto-costo/pendientes?${parametros.toString()}`;
 
             console.log('🔍 Cargando auditorías de alto costo:', {
                 url: `${import.meta.env.VITE_API_URL}${url}`,
@@ -395,33 +407,48 @@ const AltoCostoPendientes = () => {
             });
 
             if (resultado.success) {
-                // Procesar datos recibidos
+                // Procesar datos recibidos - Nueva estructura del API
                 const datosLimpios = Array.isArray(resultado.data)
                     ? resultado.data.filter(item => item != null)
                     : [];
 
-                // Enriquecer datos con información específica de alto costo
-                const datosEnriquecidos = datosLimpios.map(item => ({
-                    ...item,
-                    costo_estimado: item.costo_estimado || calcularCostoEstimado(item),
-                    prioridad: item.prioridad || getPrioridadPorCosto(item.costo_estimado),
-                    requiere_autorizacion: item.requiere_autorizacion ?? true,
-                    tipo_tratamiento: item.tipo_tratamiento || determinarTipoTratamiento(item),
-                    especialidad: item.especialidad || 'Oncólogo'
-                }));
+                console.log('📊 Datos recibidos del API:', datosLimpios);
+
+                // Mapear la nueva estructura a la estructura esperada por la tabla
+                const datosEnriquecidos = datosLimpios.map(item => {
+                    // Extraer nombre del médico y matrícula del string "Juan Perez MP-227793"
+                    const medicoMatch = item.medico?.match(/(.+)\s+MP-(\d+)/);
+                    const nombreMedico = medicoMatch ? medicoMatch[1].trim() : (item.medico || 'Sin médico');
+                    const matricula = medicoMatch ? medicoMatch[2] : 'N/A';
+
+                    return {
+                        id: item.id,
+                        idauditoria: item.id,
+                        apellido: item.apellido,
+                        nombre: item.nombre,
+                        dni: item.dni,
+                        fecha: item.fecha, // Ya viene en formato "16-10-2025"
+                        medico: nombreMedico,
+                        matricula: matricula,
+                        renglones: item.renglones,
+                        total_medicamentos: item.renglones
+                    };
+                });
+
+                console.log('📊 Datos mapeados:', datosEnriquecidos);
 
                 setAuditorias(datosEnriquecidos);
 
-                // Actualizar paginación
+                // Actualizar paginación con la nueva estructura
                 setPaginacion(prev => ({
                     ...prev,
-                    totalRegistros: resultado.total || 0,
-                    totalPaginas: resultado.totalPages || Math.ceil((resultado.total || 0) / prev.registrosPorPagina),
-                    paginaActual: resultado.page || prev.paginaActual
+                    totalRegistros: resultado.pagination?.total || 0,
+                    totalPaginas: resultado.pagination?.totalPages || Math.ceil((resultado.pagination?.total || 0) / prev.registrosPorPagina),
+                    paginaActual: resultado.pagination?.page || prev.paginaActual
                 }));
 
                 // Actualizar estadísticas
-                actualizarEstadisticas(datosEnriquecidos, resultado.total || 0);
+                actualizarEstadisticas(datosEnriquecidos, resultado.pagination?.total || 0);
 
                 setError('');
             } else {

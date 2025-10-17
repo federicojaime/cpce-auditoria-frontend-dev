@@ -20,13 +20,8 @@ import api from './api';
  */
 export const getAuditoriasAprobadas = async () => {
   try {
-    console.log('📋 Obteniendo auditorías aprobadas...');
-    const response = await api.get('/auditorias/pendientes', {
-      params: {
-        tipo: 'alto-costo',
-        estado: 'aprobado'
-      }
-    });
+    console.log('📋 Obteniendo auditorías aprobadas de alto costo...');
+    const response = await api.get('/compras/pendientes');
     console.log('✅ Auditorías aprobadas obtenidas:', response.data);
     return response.data;
   } catch (error) {
@@ -38,20 +33,21 @@ export const getAuditoriasAprobadas = async () => {
 // ===== SOLICITUDES DE PRESUPUESTO =====
 
 /**
- * Solicitar presupuestos a múltiples proveedores
+ * Enviar a proveedores (Alto Costo)
+ * POST /api/compras/:id/enviar-proveedores
  */
-export const solicitarPresupuesto = async (datos) => {
+export const solicitarPresupuesto = async (idReceta, datos) => {
   try {
-    console.log('📤 Enviando solicitud de presupuesto:', datos);
-    const response = await api.post('/presupuestos/solicitar', datos);
-    console.log('✅ Solicitud de presupuesto creada:', response.data);
+    console.log('📤 Enviando a proveedores - Receta:', idReceta, datos);
+    const response = await api.post(`/compras/${idReceta}/enviar-proveedores`, datos);
+    console.log('✅ Solicitud enviada a proveedores:', response.data);
     return response.data;
   } catch (error) {
-    console.error('❌ Error al solicitar presupuesto:', error);
+    console.error('❌ Error al enviar a proveedores:', error);
     const errorMessage = error.response?.data?.message
       || error.response?.data?.error
       || error.message
-      || 'No se pudo crear la solicitud de presupuesto';
+      || 'No se pudo enviar la solicitud a proveedores';
     throw new Error(errorMessage);
   }
 };
@@ -106,20 +102,37 @@ export const registrarRespuesta = async (datos) => {
 };
 
 /**
- * Adjudicar presupuesto a un proveedor
+ * Obtener presupuestos recibidos para una receta
+ * GET /api/compras/:id/presupuestos
  */
-export const adjudicarPresupuesto = async (solicitudId, datos) => {
+export const getPresupuestos = async (idReceta) => {
   try {
-    console.log('✅ Adjudicando presupuesto:', solicitudId, datos);
-    const response = await api.post(`/presupuestos/${solicitudId}/adjudicar`, datos);
-    console.log('✅ Presupuesto adjudicado:', response.data);
+    console.log('📋 Obteniendo presupuestos recibidos para receta:', idReceta);
+    const response = await api.get(`/compras/${idReceta}/presupuestos`);
+    console.log('✅ Presupuestos obtenidos:', response.data);
     return response.data;
   } catch (error) {
-    console.error('❌ Error al adjudicar presupuesto:', error);
+    console.error('❌ Error obteniendo presupuestos:', error);
+    throw error;
+  }
+};
+
+/**
+ * Seleccionar presupuestos (Alto Costo)
+ * POST /api/compras/:id/seleccionar-presupuestos
+ */
+export const adjudicarPresupuesto = async (idReceta, datos) => {
+  try {
+    console.log('✅ Seleccionando presupuestos para receta:', idReceta, datos);
+    const response = await api.post(`/compras/${idReceta}/seleccionar-presupuestos`, datos);
+    console.log('✅ Presupuestos seleccionados:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error al seleccionar presupuestos:', error);
     const errorMessage = error.response?.data?.message
       || error.response?.data?.error
       || error.message
-      || 'No se pudo adjudicar el presupuesto';
+      || 'No se pudo seleccionar los presupuestos';
     throw new Error(errorMessage);
   }
 };
@@ -448,12 +461,15 @@ export default {
   // Auditorías
   getAuditoriasAprobadas,
 
-  // Solicitudes
+  // Compras Alto Costo
   solicitarPresupuesto,
+  getPresupuestos,
+  adjudicarPresupuesto,
+
+  // Solicitudes
   getSolicitudes,
   getSolicitudDetalle,
   registrarRespuesta,
-  adjudicarPresupuesto,
 
   // Órdenes
   getOrdenesCompra,

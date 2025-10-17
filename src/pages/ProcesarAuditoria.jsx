@@ -746,16 +746,16 @@ const ProcesarAuditoria = () => {
                                                         
                                                         {/* Cobertura */}
                                                         <td className="px-3 py-3 text-center border-r border-gray-200">
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                max="100"
+                                                            <select
                                                                 value={coberturas[medicamento.nro_orden] || medicamento.cobertura || 50}
                                                                 onChange={(e) => handleCoberturaChange(medicamento.nro_orden, e.target.value)}
                                                                 disabled={auditoria?.botonesDeshabilitados}
-                                                                className="w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
-                                                            />
-                                                            <span className="text-xs text-gray-500">%</span>
+                                                                className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+                                                            >
+                                                                <option value="50">50%</option>
+                                                                <option value="70">70%</option>
+                                                                <option value="100">100%</option>
+                                                            </select>
                                                         </td>
                                                         
                                                         {/* Tipo Cobertura */}
@@ -784,13 +784,20 @@ const ProcesarAuditoria = () => {
                                                         
                                                         {/* Checkboxes para cada mes */}
                                                         {[1, 2, 3, 4, 5, 6].map((mesNum) => (
-                                                            <td key={`mes${mesNum}`} className="px-2 py-3 text-center border-r border-gray-200">
+                                                            <td
+                                                                key={`mes${mesNum}`}
+                                                                className="px-2 py-3 text-center border-r border-gray-200"
+                                                            >
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={meses[`mes${mesNum}`]}
                                                                     onChange={() => handleMesChange(key, `mes${mesNum}`)}
                                                                     disabled={auditoria?.botonesDeshabilitados}
-                                                                    className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
+                                                                    className={`h-5 w-5 appearance-none border-2 rounded cursor-pointer disabled:opacity-50 relative ${
+                                                                        meses[`mes${mesNum}`]
+                                                                            ? 'bg-green-500 border-green-600 after:content-["✓"] after:text-white after:text-base after:font-bold after:absolute after:left-1/2 after:top-1/2 after:-translate-x-1/2 after:-translate-y-1/2'
+                                                                            : 'bg-red-500 border-red-600'
+                                                                    }`}
                                                                 />
                                                             </td>
                                                         ))}
@@ -802,7 +809,11 @@ const ProcesarAuditoria = () => {
                                                                 checked={todosSeleccionados}
                                                                 onChange={() => handleTodosChange(key)}
                                                                 disabled={auditoria?.botonesDeshabilitados}
-                                                                className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 disabled:opacity-50"
+                                                                className={`h-5 w-5 appearance-none border-2 rounded cursor-pointer disabled:opacity-50 relative ${
+                                                                    todosSeleccionados
+                                                                        ? 'bg-green-500 border-green-600 after:content-["✓"] after:text-white after:text-base after:font-bold after:absolute after:left-1/2 after:top-1/2 after:-translate-x-1/2 after:-translate-y-1/2'
+                                                                        : 'bg-red-500 border-red-600'
+                                                                }`}
                                                             />
                                                         </td>
                                                     </tr>
