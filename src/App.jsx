@@ -16,6 +16,9 @@ import SeguimientoPresupuestos from './pages/SeguimientoPresupuestos';
 import GestionOrdenes from './pages/GestionOrdenes';
 import ReportesCompras from './pages/ReportesCompras';
 
+// Página pública para proveedores
+import ResponderPresupuesto from './pages/ResponderPresupuesto';
+
 // Páginas de Auditorías Tratamiento Prolongado (Rol 2 y 5)
 import Dashboard from './pages/Dashboard';
 import AuditoriasPendientes from './pages/AuditoriasPendientes';
@@ -101,6 +104,12 @@ function AppContent() {
               <Login />
             </PublicRoute>
           }
+        />
+
+        {/* Ruta pública para que proveedores respondan presupuestos */}
+        <Route
+          path="/presupuesto/responder/:token"
+          element={<ResponderPresupuesto />}
         />
 
         {/* ===== RUTAS PROTEGIDAS - DASHBOARD (Solo Administrativos - Rol 5) ===== */}

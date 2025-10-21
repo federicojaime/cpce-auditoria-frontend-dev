@@ -19,7 +19,8 @@ import {
     ClockIcon,
     DocumentTextIcon,
     ArrowPathIcon,
-    EyeIcon
+    EyeIcon,
+    CalendarIcon  // 🔥 AGREGADO
 } from '@heroicons/react/24/outline';
 
 const SolicitarPresupuestos = () => {
@@ -38,6 +39,10 @@ const SolicitarPresupuestos = () => {
     const [proveedoresSeleccionados, setProveedoresSeleccionados] = useState(new Set());
     const [mostrarDetalle, setMostrarDetalle] = useState(null);
     const [mostrarModalConfirmacion, setMostrarModalConfirmacion] = useState(false);
+
+    // 🔥 NUEVO: Estado para horas de expiración
+    const [horasExpiracion, setHorasExpiracion] = useState(72);
+    const [modoExpiracionPersonalizado, setModoExpiracionPersonalizado] = useState(false);
 
     // Breadcrumb configuration
     const breadcrumbItems = [
@@ -165,7 +170,7 @@ const SolicitarPresupuestos = () => {
         setMostrarModalConfirmacion(true);
     };
 
-    // Enviar solicitudes en lote
+    // 🔥 ENVIAR SOLICITUDES CON SISTEMA DE TOKENS
     const handleEnviarSolicitudes = async () => {
         setMostrarModalConfirmacion(false);
 
@@ -173,86 +178,90 @@ const SolicitarPresupuestos = () => {
             setSending(true);
             setError('');
 
-            // Obtener auditorías seleccionadas
-            const auditoriasArray = Array.from(auditoriasSeleccionadas)
-                .map(id => auditorias.find(a => a.id === id))
-                .filter(Boolean);
+            // Preparar datos para el NUEVO endpoint con tokens
+            const datos = {
+                auditoriaIds: Array.from(auditoriasSeleccionadas),
+                proveedorIds: Array.from(proveedoresSeleccionados),
+                observaciones: `Solicitud de cotización para ${auditoriasSeleccionadas.size} auditoría(s) de alto costo`,
+                horasExpiracion: parseInt(horasExpiracion) // 🔥 NUEVO: Incluir horas de expiración
+            };
 
-            let totalProveedoresContactados = 0;
-            const errores = [];
+            console.log('🔥 Usando NUEVO sistema con tokens:', datos);
 
-            // Enviar cada auditoría por separado según el nuevo formato
-            for (const auditoria of auditoriasArray) {
-                try {
-                    // Obtener detalles completos de la auditoría (con medicamentos y nro_orden)
-                    const detalleResponse = await fetch(`${import.meta.env.VITE_API_URL}/compras/${auditoria.id}`, {
-                        headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('cpce_token')}`
-                        }
-                    });
+            // Llamar al NUEVO endpoint que genera tokens y envía emails
+            const response = await presupuestosService.solicitarPresupuestoConToken(datos);
 
-                    if (!detalleResponse.ok) {
-                        throw new Error(`Error al obtener detalles de auditoría ${auditoria.id}`);
-                    }
+            console.log('✅ Respuesta del servidor:', response);
 
-                    const detalleData = await detalleResponse.json();
+            // Verificar respuesta exitosa
+            if (response.mensaje || response.solicitudId) {
+                // Mensaje de éxito detallado
+                const loteNumero = response.loteNumero || 'N/A';
+                const proveedoresEnviados = response.resultadosEnvio?.filter(r => r.enviado).length || proveedoresSeleccionados.size;
+                const proveedoresFallados = response.resultadosEnvio?.filter(r => !r.enviado).length || 0;
 
-                    if (!detalleData.success || !detalleData.data?.medicamentos) {
-                        throw new Error(`No se encontraron medicamentos para auditoría ${auditoria.id}`);
-                    }
+                setSuccess(
+                    `✅ Solicitud creada exitosamente!\n\n` +
+                    `📋 Lote: ${loteNumero}\n` +
+                    `✉️ Emails enviados: ${proveedoresEnviados} de ${proveedoresSeleccionados.size} proveedores\n` +
+                    `⏰ Expiración: 72 horas\n` +
+                    `📦 Auditorías: ${auditoriasSeleccionadas.size}`
+                );
 
-                    // Preparar formato esperado por el endpoint
-                    const medicamentos = detalleData.data.medicamentos.map(med => ({
-                        nro_orden: med.nro_orden,
-                        proveedores: Array.from(proveedoresSeleccionados) // Todos los proveedores seleccionados
-                    }));
+                toast.success(
+                    `🎉 Solicitud ${loteNumero} enviada a ${proveedoresEnviados} proveedores con enlaces de respuesta`,
+                    { autoClose: 7000 }
+                );
 
-                    const datos = {
-                        medicamentos: medicamentos,
-                        observaciones: `Solicitud de cotización para ${medicamentos.length} medicamento(s) de alto costo`
-                    };
-
-                    // Enviar a proveedores usando el nuevo endpoint
-                    const response = await presupuestosService.solicitarPresupuesto(auditoria.id, datos);
-
-                    if (response.success) {
-                        totalProveedoresContactados += response.proveedoresContactados || proveedoresSeleccionados.size;
-                    }
-
-                } catch (error) {
-                    console.error(`Error procesando auditoría ${auditoria.id}:`, error);
-                    errores.push(`Auditoría #${auditoria.id}: ${error.message}`);
+                // Mostrar advertencia si algunos emails fallaron
+                if (proveedoresFallados > 0) {
+                    toast.warning(
+                        `⚠️ ${proveedoresFallados} email(s) no pudieron ser enviados. Revise los detalles.`,
+                        { autoClose: 5000 }
+                    );
+                    console.warn('Emails fallados:', response.resultadosEnvio?.filter(r => !r.enviado));
                 }
-            }
-
-            // Mostrar resultados
-            if (errores.length === 0) {
-                setSuccess(`✅ Solicitudes enviadas exitosamente a ${proveedoresSeleccionados.size} proveedores para ${auditoriasArray.length} auditoría(s)`);
-                toast.success(`${auditoriasArray.length} auditoría(s) enviadas a ${proveedoresSeleccionados.size} proveedores`, {
-                    autoClose: 5000
-                });
 
                 // Limpiar selecciones
                 setAuditoriasSeleccionadas(new Set());
                 setProveedoresSeleccionados(new Set());
 
-                // Recargar datos
+                // Recargar datos después de 2 segundos
                 setTimeout(() => {
                     cargarDatos();
                 }, 2000);
             } else {
-                const errorMsg = `Algunas solicitudes fallaron:\n${errores.join('\n')}`;
-                setError(errorMsg);
-                toast.error('Algunas solicitudes fallaron. Revisa los detalles.', { autoClose: 7000 });
+                throw new Error('Respuesta inesperada del servidor');
             }
 
         } catch (error) {
-            console.error('Error al enviar solicitudes:', error);
+            console.error('❌ Error al enviar solicitudes con tokens:', error);
             setError(error.message || 'Error al enviar las solicitudes de presupuesto');
-            toast.error(error.message || 'Error al enviar las solicitudes');
+            toast.error(error.message || 'Error al enviar las solicitudes', { autoClose: 5000 });
         } finally {
             setSending(false);
         }
+    };
+
+    // 🔥 NUEVO: Calcular fecha de expiración
+    const calcularFechaExpiracion = () => {
+        const fecha = new Date();
+        fecha.setHours(fecha.getHours() + parseInt(horasExpiracion));
+        return fecha.toLocaleString('es-AR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    // 🔥 NUEVO: Calcular días y horas equivalentes
+    const calcularDiasYHoras = () => {
+        const horas = parseInt(horasExpiracion);
+        const dias = Math.floor(horas / 24);
+        const horasRestantes = horas % 24;
+        return { dias, horasRestantes };
     };
 
     // Calcular totales
@@ -520,6 +529,105 @@ const SolicitarPresupuestos = () => {
                 </div>
             </div>
 
+            {/* 🔥 NUEVO: Configuración de Expiración */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
+                        <ClockIcon className="h-5 w-5 mr-2 text-orange-600" />
+                        Tiempo de Expiración
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                        Configure cuánto tiempo tendrán los proveedores para responder
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Select con opciones predefinidas */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Seleccione un plazo
+                        </label>
+                        <select
+                            value={modoExpiracionPersonalizado ? 'personalizado' : horasExpiracion}
+                            onChange={(e) => {
+                                const valor = e.target.value;
+                                if (valor === 'personalizado') {
+                                    setModoExpiracionPersonalizado(true);
+                                } else {
+                                    setModoExpiracionPersonalizado(false);
+                                    setHorasExpiracion(parseInt(valor));
+                                }
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                            <option value="12">12 horas (medio día) - Urgente</option>
+                            <option value="24">24 horas (1 día) - Muy urgente</option>
+                            <option value="48">48 horas (2 días) - Urgente</option>
+                            <option value="72">72 horas (3 días) - Recomendado</option>
+                            <option value="96">96 horas (4 días)</option>
+                            <option value="120">120 horas (5 días)</option>
+                            <option value="168">168 horas (1 semana)</option>
+                            <option value="336">336 horas (2 semanas)</option>
+                            <option value="720">720 horas (30 días / máximo)</option>
+                            <option value="personalizado">⚙️ Personalizado...</option>
+                        </select>
+                    </div>
+
+                    {/* Input personalizado (si está en modo personalizado) */}
+                    {modoExpiracionPersonalizado && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Horas personalizadas
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="720"
+                                value={horasExpiracion}
+                                onChange={(e) => {
+                                    const valor = parseInt(e.target.value) || 1;
+                                    if (valor >= 1 && valor <= 720) {
+                                        setHorasExpiracion(valor);
+                                    }
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Ej: 48"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Mínimo: 1 hora | Máximo: 720 horas (30 días)
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Información de expiración calculada */}
+                    <div className="md:col-span-2">
+                        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-l-4 border-orange-500 p-4 rounded-lg">
+                            <div className="flex items-start">
+                                <CalendarIcon className="h-5 w-5 text-orange-600 mt-0.5 mr-3" />
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium text-gray-900">
+                                        📅 Los proveedores podrán responder hasta:
+                                    </p>
+                                    <p className="text-lg font-bold text-orange-700 mt-1">
+                                        {calcularFechaExpiracion()}
+                                    </p>
+                                    <p className="text-sm text-gray-600 mt-1">
+                                        {(() => {
+                                            const { dias, horasRestantes } = calcularDiasYHoras();
+                                            if (dias > 0) {
+                                                return `⏰ ${horasExpiracion} horas (${dias} día${dias > 1 ? 's' : ''} ${horasRestantes > 0 ? `y ${horasRestantes} hora${horasRestantes > 1 ? 's' : ''}` : ''})`;
+                                            } else {
+                                                return `⏰ ${horasExpiracion} hora${horasExpiracion > 1 ? 's' : ''}`;
+                                            }
+                                        })()}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* Botón de envío */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
                 <div className="mb-4">
@@ -567,9 +675,10 @@ const SolicitarPresupuestos = () => {
                         <div className="mt-2 text-sm text-blue-700">
                             <ul className="list-disc list-inside space-y-1">
                                 <li>Las solicitudes incluyen todos los datos de la auditoría y medicamentos</li>
-                                <li>Los proveedores recibirán un email con la información detallada</li>
+                                <li>Los proveedores recibirán un email con un enlace único para responder</li>
                                 <li>El seguimiento de respuestas se puede ver en "Seguimiento Presupuestos"</li>
-                                <li>Los proveedores tienen 7 días para responder por defecto</li>
+                                <li>El tiempo de expiración es configurable (por defecto: 72 horas / 3 días)</li>
+                                <li>Los proveedores NO necesitan ingresar al sistema para responder</li>
                             </ul>
                         </div>
                     </div>

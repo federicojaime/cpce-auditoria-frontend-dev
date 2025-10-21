@@ -33,7 +33,29 @@ export const getAuditoriasAprobadas = async () => {
 // ===== SOLICITUDES DE PRESUPUESTO =====
 
 /**
- * Enviar a proveedores (Alto Costo)
+ * 🔥 NUEVO SISTEMA CON TOKENS
+ * Crear solicitud de presupuesto y enviar emails con tokens a proveedores
+ * POST /api/presupuestos/solicitar-con-email
+ */
+export const solicitarPresupuestoConToken = async (datos) => {
+  try {
+    console.log('📤 Enviando solicitud con tokens a proveedores:', datos);
+    const response = await api.post('/presupuestos/solicitar-con-email', datos);
+    console.log('✅ Solicitud con tokens enviada:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error al enviar solicitud con tokens:', error);
+    const errorMessage = error.response?.data?.error
+      || error.response?.data?.message
+      || error.message
+      || 'No se pudo enviar la solicitud de presupuesto';
+    throw new Error(errorMessage);
+  }
+};
+
+/**
+ * ⚠️ SISTEMA ANTIGUO (Mantener por compatibilidad)
+ * Enviar a proveedores (Alto Costo) - Sistema sin tokens
  * POST /api/compras/:id/enviar-proveedores
  */
 export const solicitarPresupuesto = async (idReceta, datos) => {
@@ -463,6 +485,7 @@ export default {
 
   // Compras Alto Costo
   solicitarPresupuesto,
+  solicitarPresupuestoConToken, // 🔥 NUEVO - Sistema con tokens
   getPresupuestos,
   adjudicarPresupuesto,
 
