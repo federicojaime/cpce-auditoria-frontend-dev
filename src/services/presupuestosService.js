@@ -17,15 +17,32 @@ import api from './api';
 
 /**
  * Obtener auditorías de alto costo aprobadas pendientes de cotización
+ * SOLO las que tienen estado_auditoria = 1 (Autorizadas pero NO enviadas a presupuesto)
  */
 export const getAuditoriasAprobadas = async () => {
   try {
-    console.log('📋 Obteniendo auditorías aprobadas de alto costo...');
+    console.log('📋 Obteniendo auditorías aprobadas (estado = 1)...');
     const response = await api.get('/compras/pendientes');
     console.log('✅ Auditorías aprobadas obtenidas:', response.data);
     return response.data;
   } catch (error) {
     console.error('❌ Error obteniendo auditorías aprobadas:', error);
+    throw error;
+  }
+};
+
+/**
+ * 🔥 NUEVO: Obtener auditorías que ya están en proceso de presupuesto
+ * SOLO las que tienen estado_auditoria = 4 (En presupuesto)
+ */
+export const getAuditoriasEnPresupuesto = async () => {
+  try {
+    console.log('📋 Obteniendo auditorías en presupuesto (estado = 4)...');
+    const response = await api.get('/compras/en-presupuesto');
+    console.log('✅ Auditorías en presupuesto obtenidas:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error obteniendo auditorías en presupuesto:', error);
     throw error;
   }
 };
@@ -75,7 +92,39 @@ export const solicitarPresupuesto = async (idReceta, datos) => {
 };
 
 /**
- * Obtener lista de solicitudes de presupuesto
+ * 🔥 NUEVO: Obtener estadísticas de presupuestos (contadores)
+ * GET /api/presupuestos/estadisticas-email
+ */
+export const getEstadisticasPresupuestos = async () => {
+  try {
+    console.log('📊 Obteniendo estadísticas de presupuestos...');
+    const response = await api.get('/presupuestos/estadisticas-email');
+    console.log('✅ Estadísticas obtenidas:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error obteniendo estadísticas:', error);
+    throw error;
+  }
+};
+
+/**
+ * 🔥 NUEVO: Obtener lista de solicitudes con sistema de tokens/email
+ * GET /api/presupuestos/solicitudes-email
+ */
+export const getSolicitudesEmail = async (params = {}) => {
+  try {
+    console.log('📋 Obteniendo solicitudes con email:', params);
+    const response = await api.get('/presupuestos/solicitudes-email', { params });
+    console.log('✅ Solicitudes obtenidas:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error obteniendo solicitudes:', error);
+    throw error;
+  }
+};
+
+/**
+ * ⚠️ LEGACY: Obtener lista de solicitudes de presupuesto (sistema antiguo)
  */
 export const getSolicitudes = async (params = {}) => {
   try {
@@ -90,7 +139,84 @@ export const getSolicitudes = async (params = {}) => {
 };
 
 /**
- * Obtener detalle de una solicitud específica
+ * 🔥 NUEVO: Obtener detalle completo de solicitud con respuestas
+ * GET /api/presupuestos/solicitudes-email/:id
+ */
+export const getSolicitudEmailDetalle = async (id) => {
+  try {
+    console.log('🔍 Obteniendo detalle de solicitud con email:', id);
+    const response = await api.get(`/presupuestos/solicitudes-email/${id}`);
+    console.log('✅ Detalle obtenido:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error obteniendo detalle de solicitud:', error);
+    throw error;
+  }
+};
+
+/**
+ * 🔥 NUEVO: Comparar presupuestos de una solicitud
+ * GET /api/presupuestos/comparar/:solicitudId
+ */
+export const compararPresupuestos = async (solicitudId) => {
+  try {
+    console.log('📊 Comparando presupuestos de solicitud:', solicitudId);
+    const response = await api.get(`/presupuestos/comparar/${solicitudId}`);
+    console.log('✅ Comparación obtenida:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error comparando presupuestos:', error);
+    throw error;
+  }
+};
+
+/**
+ * 🔥 NUEVO: Actualizar estado de solicitud manualmente
+ * PUT /api/presupuestos/solicitudes-email/:id/estado
+ */
+export const actualizarEstadoSolicitud = async (id, nuevoEstado) => {
+  try {
+    console.log('🔄 Actualizando estado de solicitud:', id, nuevoEstado);
+    const response = await api.put(`/presupuestos/solicitudes-email/${id}/estado`, {
+      estado: nuevoEstado
+    });
+    console.log('✅ Estado actualizado:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error actualizando estado:', error);
+    const errorMessage = error.response?.data?.error
+      || error.response?.data?.message
+      || error.message
+      || 'No se pudo actualizar el estado';
+    throw new Error(errorMessage);
+  }
+};
+
+/**
+ * 🔥 NUEVO: Adjudicar presupuesto con sistema de tokens/email
+ * POST /api/presupuestos/solicitudes-email/:id/adjudicar
+ */
+export const adjudicarPresupuestoEmail = async (solicitudId, proveedorId, observaciones = '') => {
+  try {
+    console.log('🏆 Adjudicando presupuesto con email:', { solicitudId, proveedorId, observaciones });
+    const response = await api.post(`/presupuestos/solicitudes-email/${solicitudId}/adjudicar`, {
+      proveedorId,
+      observaciones
+    });
+    console.log('✅ Presupuesto adjudicado:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error adjudicando presupuesto:', error);
+    const errorMessage = error.response?.data?.error
+      || error.response?.data?.message
+      || error.message
+      || 'No se pudo adjudicar el presupuesto';
+    throw new Error(errorMessage);
+  }
+};
+
+/**
+ * ⚠️ LEGACY: Obtener detalle de una solicitud específica (sistema antiguo)
  */
 export const getSolicitudDetalle = async (id) => {
   try {
@@ -482,14 +608,22 @@ const getEstadoBadge = (estado) => {
 export default {
   // Auditorías
   getAuditoriasAprobadas,
+  getAuditoriasEnPresupuesto, // 🔥 NUEVO - Auditorías en estado 4
 
   // Compras Alto Costo
   solicitarPresupuesto,
   solicitarPresupuestoConToken, // 🔥 NUEVO - Sistema con tokens
   getPresupuestos,
-  adjudicarPresupuesto,
 
-  // Solicitudes
+  // Solicitudes (Sistema Nuevo con Tokens/Email)
+  getEstadisticasPresupuestos, // 🔥 NUEVO - Estadísticas para dashboard
+  getSolicitudesEmail, // 🔥 NUEVO - Listar solicitudes con email
+  getSolicitudEmailDetalle, // 🔥 NUEVO - Detalle con respuestas
+  compararPresupuestos, // 🔥 NUEVO - Comparador de ofertas
+  actualizarEstadoSolicitud, // 🔥 NUEVO - Cambiar estado manualmente
+  adjudicarPresupuestoEmail, // 🔥 NUEVO - Adjudicar a proveedor ganador (email)
+
+  // Solicitudes (Sistema Legacy)
   getSolicitudes,
   getSolicitudDetalle,
   registrarRespuesta,

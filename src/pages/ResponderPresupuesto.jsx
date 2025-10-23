@@ -12,7 +12,8 @@ import {
     PaperAirplaneIcon,
     BuildingOffice2Icon,
     UserIcon,
-    DocumentTextIcon
+    DocumentTextIcon,
+    MapPinIcon
 } from '@heroicons/react/24/outline';
 
 const ResponderPresupuesto = () => {
@@ -27,6 +28,7 @@ const ResponderPresupuesto = () => {
     const [sending, setSending] = useState(false);
     const [expirado, setExpirado] = useState(false);
     const [yaRespondio, setYaRespondio] = useState(false);
+    const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
 
     // Cargar solicitud cuando se monta el componente
     useEffect(() => {
@@ -56,6 +58,7 @@ const ResponderPresupuesto = () => {
                         precio: '',
                         fechaRetiro: '',
                         fechaVencimiento: '',
+                        lugarRetiro: '',
                         comentarios: ''
                     };
                 });
@@ -106,7 +109,7 @@ const ResponderPresupuesto = () => {
     const handleAceptaChange = (auditoriaId, medicamentoId, acepta) => {
         const key = `${auditoriaId}_${medicamentoId}`;
 
-        // Si no acepta, limpiar campos de precio y fechas
+        // Si no acepta, limpiar campos de precio, fechas y lugar
         if (!acepta) {
             setRespuestas(prev => ({
                 ...prev,
@@ -115,7 +118,8 @@ const ResponderPresupuesto = () => {
                     acepta: false,
                     precio: '',
                     fechaRetiro: '',
-                    fechaVencimiento: ''
+                    fechaVencimiento: '',
+                    lugarRetiro: ''
                 }
             }));
         } else {
@@ -143,6 +147,9 @@ const ResponderPresupuesto = () => {
                 }
                 if (!respuesta.fechaVencimiento) {
                     errores.push(`Debe ingresar una fecha de vencimiento para el medicamento ${index + 1}`);
+                }
+                if (!respuesta.lugarRetiro || respuesta.lugarRetiro.trim() === '') {
+                    errores.push(`Debe ingresar el lugar de retiro para el medicamento ${index + 1}`);
                 }
 
                 // Validar que la fecha de vencimiento sea posterior a la fecha de retiro
@@ -175,10 +182,13 @@ const ResponderPresupuesto = () => {
             return;
         }
 
-        // Confirmar envío
-        if (!window.confirm('¿Está seguro de enviar esta respuesta? No podrá modificarla después.')) {
-            return;
-        }
+        // Mostrar modal de confirmación
+        setMostrarConfirmacion(true);
+    };
+
+    // Confirmar y enviar respuesta
+    const confirmarEnvio = async () => {
+        setMostrarConfirmacion(false);
 
         try {
             setSending(true);
@@ -411,64 +421,90 @@ const ResponderPresupuesto = () => {
 
                                             {/* Campos si acepta */}
                                             {resp.acepta && (
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-green-50 p-4 rounded-lg">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                            Precio * <CurrencyDollarIcon className="inline h-4 w-4" />
-                                                        </label>
-                                                        <input
-                                                            type="number"
-                                                            step="0.01"
-                                                            min="0"
-                                                            value={resp.precio}
-                                                            onChange={(e) => handleChange(
-                                                                auditoria.id,
-                                                                medicamento.id,
-                                                                'precio',
-                                                                e.target.value
-                                                            )}
-                                                            required
-                                                            placeholder="0.00"
-                                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                                        />
+                                                <div className="space-y-4 bg-green-50 p-4 rounded-lg">
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                                Precio * <CurrencyDollarIcon className="inline h-4 w-4" />
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                value={resp.precio}
+                                                                onChange={(e) => handleChange(
+                                                                    auditoria.id,
+                                                                    medicamento.id,
+                                                                    'precio',
+                                                                    e.target.value
+                                                                )}
+                                                                required
+                                                                placeholder="0.00"
+                                                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                                            />
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                                Fecha de Retiro * <CalendarIcon className="inline h-4 w-4" />
+                                                            </label>
+                                                            <input
+                                                                type="date"
+                                                                value={resp.fechaRetiro}
+                                                                onChange={(e) => handleChange(
+                                                                    auditoria.id,
+                                                                    medicamento.id,
+                                                                    'fechaRetiro',
+                                                                    e.target.value
+                                                                )}
+                                                                min={new Date().toISOString().split('T')[0]}
+                                                                required
+                                                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                                            />
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                                Fecha de Vencimiento * <CalendarIcon className="inline h-4 w-4" />
+                                                            </label>
+                                                            <input
+                                                                type="date"
+                                                                value={resp.fechaVencimiento}
+                                                                onChange={(e) => handleChange(
+                                                                    auditoria.id,
+                                                                    medicamento.id,
+                                                                    'fechaVencimiento',
+                                                                    e.target.value
+                                                                )}
+                                                                min={new Date().toISOString().split('T')[0]}
+                                                                required
+                                                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                                            />
+                                                        </div>
                                                     </div>
 
+                                                    {/* Campo Lugar de Retiro - Full width */}
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                            Fecha de Retiro * <CalendarIcon className="inline h-4 w-4" />
+                                                            Lugar de Retiro * <MapPinIcon className="inline h-4 w-4" />
                                                         </label>
                                                         <input
-                                                            type="date"
-                                                            value={resp.fechaRetiro}
+                                                            type="text"
+                                                            value={resp.lugarRetiro}
                                                             onChange={(e) => handleChange(
                                                                 auditoria.id,
                                                                 medicamento.id,
-                                                                'fechaRetiro',
+                                                                'lugarRetiro',
                                                                 e.target.value
                                                             )}
-                                                            min={new Date().toISOString().split('T')[0]}
                                                             required
+                                                            maxLength={255}
+                                                            placeholder="Ej: Sucursal Centro - Av. San Martín 456, Ciudad"
                                                             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                                         />
-                                                    </div>
-
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                            Fecha de Vencimiento * <CalendarIcon className="inline h-4 w-4" />
-                                                        </label>
-                                                        <input
-                                                            type="date"
-                                                            value={resp.fechaVencimiento}
-                                                            onChange={(e) => handleChange(
-                                                                auditoria.id,
-                                                                medicamento.id,
-                                                                'fechaVencimiento',
-                                                                e.target.value
-                                                            )}
-                                                            min={new Date().toISOString().split('T')[0]}
-                                                            required
-                                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                                        />
+                                                        <p className="mt-1 text-xs text-gray-500">
+                                                            Indique la dirección o sucursal donde se puede retirar el medicamento
+                                                        </p>
                                                     </div>
                                                 </div>
                                             )}
@@ -543,6 +579,81 @@ const ResponderPresupuesto = () => {
                     </p>
                 </div>
             </div>
+
+            {/* Modal de Confirmación */}
+            {mostrarConfirmacion && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                        {/* Overlay */}
+                        <div
+                            className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+                            onClick={() => setMostrarConfirmacion(false)}
+                        />
+
+                        {/* Modal */}
+                        <div className="inline-block w-full max-w-md my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+                            {/* Header */}
+                            <div className="px-6 py-4 bg-gradient-to-r from-orange-500 to-red-500">
+                                <div className="flex items-center justify-center">
+                                    <ExclamationTriangleIcon className="h-12 w-12 text-white" />
+                                </div>
+                            </div>
+
+                            {/* Body */}
+                            <div className="px-6 py-5">
+                                <h3 className="text-lg font-semibold text-gray-900 text-center mb-3">
+                                    ¿Está seguro de enviar esta respuesta?
+                                </h3>
+                                <p className="text-sm text-gray-600 text-center mb-4">
+                                    Una vez enviada, <strong>no podrá modificar</strong> su respuesta.
+                                </p>
+
+                                {/* Resumen de medicamentos aceptados */}
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                    <h4 className="text-sm font-medium text-blue-900 mb-2">
+                                        Resumen de su respuesta:
+                                    </h4>
+                                    <div className="space-y-1 text-sm text-blue-800">
+                                        {Object.values(respuestas).filter(r => r.acepta).length > 0 ? (
+                                            <>
+                                                <p>✅ Aceptados: <strong>{Object.values(respuestas).filter(r => r.acepta).length}</strong> medicamentos</p>
+                                                <p>❌ Rechazados: <strong>{Object.values(respuestas).filter(r => !r.acepta).length}</strong> medicamentos</p>
+                                            </>
+                                        ) : (
+                                            <p>❌ No aceptó ningún medicamento</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-4">
+                                    <div className="flex">
+                                        <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400 mt-0.5" />
+                                        <p className="ml-3 text-sm text-yellow-700">
+                                            Por favor, verifique que todos los datos sean correctos antes de confirmar.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
+                                <button
+                                    onClick={() => setMostrarConfirmacion(false)}
+                                    className="px-4 py-2 border-2 border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={confirmarEnvio}
+                                    className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md text-sm font-medium hover:from-green-600 hover:to-green-700 shadow-md hover:shadow-lg transition-all"
+                                >
+                                    Aceptar y Enviar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

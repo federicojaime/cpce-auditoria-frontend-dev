@@ -783,24 +783,33 @@ const ProcesarAuditoria = () => {
                                                         </td>
                                                         
                                                         {/* Checkboxes para cada mes */}
-                                                        {[1, 2, 3, 4, 5, 6].map((mesNum) => (
-                                                            <td
-                                                                key={`mes${mesNum}`}
-                                                                className="px-2 py-3 text-center border-r border-gray-200"
-                                                            >
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={meses[`mes${mesNum}`]}
-                                                                    onChange={() => handleMesChange(key, `mes${mesNum}`)}
-                                                                    disabled={auditoria?.botonesDeshabilitados}
-                                                                    className={`h-5 w-5 appearance-none border-2 rounded cursor-pointer disabled:opacity-50 relative ${
-                                                                        meses[`mes${mesNum}`]
-                                                                            ? 'bg-green-500 border-green-600 after:content-["✓"] after:text-white after:text-base after:font-bold after:absolute after:left-1/2 after:top-1/2 after:-translate-x-1/2 after:-translate-y-1/2'
-                                                                            : 'bg-red-500 border-red-600'
-                                                                    }`}
-                                                                />
-                                                            </td>
-                                                        ))}
+                                                        {[1, 2, 3, 4, 5, 6].map((mesNum) => {
+                                                            // 🔥 Determinar cuántos meses tiene este medicamento
+                                                            const mesesPermitidos = medicamento.meses || medicamento.cantmeses || auditoria.cantmeses || 6;
+                                                            // 🔥 Este checkbox está deshabilitado si el mes excede los meses permitidos
+                                                            const mesDeshabilitado = mesNum > mesesPermitidos;
+
+                                                            return (
+                                                                <td
+                                                                    key={`mes${mesNum}`}
+                                                                    className="px-2 py-3 text-center border-r border-gray-200"
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={meses[`mes${mesNum}`]}
+                                                                        onChange={() => handleMesChange(key, `mes${mesNum}`)}
+                                                                        disabled={auditoria?.botonesDeshabilitados || mesDeshabilitado}
+                                                                        className={`h-5 w-5 appearance-none border-2 rounded cursor-pointer disabled:opacity-50 relative ${
+                                                                            mesDeshabilitado
+                                                                                ? 'bg-gray-300 border-gray-400 cursor-not-allowed'
+                                                                                : meses[`mes${mesNum}`]
+                                                                                    ? 'bg-green-500 border-green-600 after:content-["✓"] after:text-white after:text-base after:font-bold after:absolute after:left-1/2 after:top-1/2 after:-translate-x-1/2 after:-translate-y-1/2'
+                                                                                    : 'bg-red-500 border-red-600'
+                                                                        }`}
+                                                                    />
+                                                                </td>
+                                                            );
+                                                        })}
                                                         
                                                         {/* Checkbox Todos */}
                                                         <td className="px-3 py-3 text-center">

@@ -37,12 +37,14 @@ const SolicitarPresupuestos = () => {
     // Estados de selección
     const [auditoriasSeleccionadas, setAuditoriasSeleccionadas] = useState(new Set());
     const [proveedoresSeleccionados, setProveedoresSeleccionados] = useState(new Set());
-    const [mostrarDetalle, setMostrarDetalle] = useState(null);
     const [mostrarModalConfirmacion, setMostrarModalConfirmacion] = useState(false);
+    const [mostrarDetalle, setMostrarDetalle] = useState(null); // 🔥 Para expandir/colapsar medicamentos
 
     // 🔥 NUEVO: Estado para horas de expiración
     const [horasExpiracion, setHorasExpiracion] = useState(72);
     const [modoExpiracionPersonalizado, setModoExpiracionPersonalizado] = useState(false);
+    const [fechaHoraExpiracion, setFechaHoraExpiracion] = useState('');
+    const [usarFechaEspecifica, setUsarFechaEspecifica] = useState(true); // 🔥 Por defecto usar fecha/hora específica
 
     // Breadcrumb configuration
     const breadcrumbItems = [
@@ -53,6 +55,14 @@ const SolicitarPresupuestos = () => {
     // Cargar datos desde la API
     useEffect(() => {
         cargarDatos();
+    }, []);
+
+    // 🔥 NUEVO: Establecer fecha/hora por defecto (72 horas desde ahora)
+    useEffect(() => {
+        const ahora = new Date();
+        ahora.setHours(ahora.getHours() + 72); // 72 horas (3 días) por defecto
+        const fechaHoraStr = ahora.toISOString().slice(0, 16); // Formato YYYY-MM-DDTHH:mm
+        setFechaHoraExpiracion(fechaHoraStr);
     }, []);
 
     const cargarDatos = async () => {
@@ -67,6 +77,7 @@ const SolicitarPresupuestos = () => {
             ]);
 
             // Procesar auditorías - mapear campos del API al formato del componente
+            // 🔥 Las auditorías ya vienen ORDENADAS del backend por prioridad (ALTA → MEDIA → NORMAL) y fecha más antigua primero
             if (auditoriasResponse.success && auditoriasResponse.data) {
                 const auditoriasFormateadas = auditoriasResponse.data.map(auditoria => ({
                     id: auditoria.id || auditoria.idauditoria,
@@ -75,13 +86,21 @@ const SolicitarPresupuestos = () => {
                         dni: auditoria.dni || 'N/A'
                     },
                     auditor: auditoria.medico || 'No asignado',
+                    // 🔥 NUEVOS CAMPOS DEL BACKEND
+                    fechaEmision: auditoria.fecha_emision || 'N/A', // Formato dd-mm-yyyy
+                    fechaEmisionRaw: auditoria.fecha_emision_raw, // Para ordenamiento
                     fechaAprobacion: auditoria.fecha ? new Date(auditoria.fecha).toLocaleDateString('es-AR') : 'N/A',
-                    medicamentos: Array(auditoria.renglones || 1).fill({ nombre: 'Medicamento de alto costo', costoEstimado: 0 }),
-                    costoTotal: auditoria.costo_estimado || 0,
-                    prioridad: auditoria.prioridad || 'MEDIA',
+                    precioTotal: auditoria.precio_total || 0, // 🔥 PRECIO TOTAL REAL
+                    diasDesdeEmision: auditoria.dias_desde_emision || 0, // 🔥 DÍAS TRANSCURRIDOS
+                    prioridad: auditoria.prioridad || 'NORMAL', // 🔥 PRIORIDAD CALCULADA (ALTA/MEDIA/NORMAL)
+                    fechaRecepcion: auditoria.fecha_recepcion || 'N/A',
+                    estadoCompra: auditoria.estado_compra || 'pendiente',
+                    // 🔥 MEDICAMENTOS COMPLETOS del backend
+                    medicamentos: auditoria.medicamentos || [],
+                    // Campos legacy
                     observaciones: auditoria.observaciones || '',
                     meses: auditoria.meses || 0,
-                    renglones: auditoria.renglones || 0
+                    renglones: auditoria.medicamentos_aprobados || auditoria.renglones || 0
                 }));
                 setAuditorias(auditoriasFormateadas);
             }
@@ -164,6 +183,20 @@ const SolicitarPresupuestos = () => {
         if (proveedoresSeleccionados.size === 0) {
             setError('Debe seleccionar al menos un proveedor');
             toast.error('Debe seleccionar al menos un proveedor');
+            return;
+        }
+
+        // Validar fecha/hora específica si está seleccionada
+        if (usarFechaEspecifica && !fechaHoraExpiracion) {
+            setError('Debe seleccionar una fecha y hora de vencimiento');
+            toast.error('Debe seleccionar una fecha y hora de vencimiento');
+            return;
+        }
+
+        // Validar que la fecha sea futura
+        if (usarFechaEspecifica && horasExpiracion <= 0) {
+            setError('La fecha y hora de vencimiento debe ser futura');
+            toast.error('La fecha y hora de vencimiento debe ser futura');
             return;
         }
 
@@ -252,7 +285,8 @@ const SolicitarPresupuestos = () => {
             month: '2-digit',
             year: 'numeric',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            hour12: false // 🔥 Formato 24 horas
         });
     };
 
@@ -264,15 +298,65 @@ const SolicitarPresupuestos = () => {
         return { dias, horasRestantes };
     };
 
+    // 🔥 NUEVO: Calcular horas desde ahora hasta fecha específica
+    const calcularHorasHastaFecha = (fechaHoraStr) => {
+        if (!fechaHoraStr) return 0;
+        const ahora = new Date();
+        const fechaObjetivo = new Date(fechaHoraStr);
+        const diferenciaMs = fechaObjetivo - ahora;
+        const horas = Math.ceil(diferenciaMs / (1000 * 60 * 60)); // Redondear hacia arriba
+        return horas > 0 ? horas : 0;
+    };
+
+    // 🔥 NUEVO: Manejar cambio de fecha/hora específica
+    const handleFechaHoraChange = (fechaHoraStr) => {
+        setFechaHoraExpiracion(fechaHoraStr);
+        const horasCalculadas = calcularHorasHastaFecha(fechaHoraStr);
+        setHorasExpiracion(horasCalculadas);
+    };
+
+    // 🔥 NUEVO: Obtener fecha/hora mínima (ahora + 1 hora)
+    const getFechaHoraMinima = () => {
+        const ahora = new Date();
+        ahora.setHours(ahora.getHours() + 1);
+        return ahora.toISOString().slice(0, 16); // Formato YYYY-MM-DDTHH:mm
+    };
+
+    // 🔥 Función para formatear precio con puntos de miles y coma decimal
+    const formatearPrecioResumen = (precio) => {
+        if (!precio && precio !== 0) return '$0,00';
+
+        // Asegurarse de que sea un número
+        let numero = precio;
+        if (typeof precio === 'string') {
+            // Remover cualquier formato existente
+            numero = parseFloat(precio.replace(/[^\d.-]/g, ''));
+        }
+
+        if (isNaN(numero)) return '$0,00';
+
+        // Formatear con 2 decimales
+        const partes = numero.toFixed(2).split('.');
+        const entero = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        const decimal = partes[1];
+        return `$${entero},${decimal}`;
+    };
+
     // Calcular totales
     const calcularTotales = () => {
         const auditoriasArray = Array.from(auditoriasSeleccionadas)
             .map(id => auditorias.find(a => a.id === id))
             .filter(Boolean);
 
-        const costoTotal = auditoriasArray.reduce((total, auditoria) => total + (auditoria.costoTotal || 0), 0);
+        // 🔥 Usar precioTotal y asegurar que sea número con parseFloat
+        const costoTotal = auditoriasArray.reduce((total, auditoria) => {
+            const precio = parseFloat(auditoria.precioTotal) || 0;
+            return total + precio;
+        }, 0);
+
+        // 🔥 Usar renglones en lugar de medicamentos.length
         const medicamentosTotal = auditoriasArray.reduce((total, auditoria) =>
-            total + (auditoria.medicamentos?.length || 0), 0);
+            total + (auditoria.renglones || 0), 0);
 
         return { costoTotal, medicamentosTotal, auditoriasCount: auditoriasArray.length };
     };
@@ -332,6 +416,33 @@ const SolicitarPresupuestos = () => {
                 </div>
             )}
 
+            {/* 🔥 RESUMEN GENERAL (siempre visible) */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-blue-900 mb-4">📊 Resumen General</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+                    <div className="bg-white rounded-lg p-4 shadow-sm border border-blue-100">
+                        <div className="text-3xl font-bold text-blue-600">{auditorias.length}</div>
+                        <div className="text-sm text-gray-600 mt-1">Auditorías</div>
+                    </div>
+                    <div className="bg-white rounded-lg p-4 shadow-sm border border-green-100">
+                        <div className="text-3xl font-bold text-green-600">
+                            {auditorias.reduce((total, a) => total + (a.renglones || 0), 0)}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">Medicamentos</div>
+                    </div>
+                    <div className="bg-white rounded-lg p-4 shadow-sm border border-orange-100">
+                        <div className="text-3xl font-bold text-orange-600">
+                            {formatearPrecioResumen(auditorias.reduce((total, a) => total + (parseFloat(a.precioTotal) || 0), 0))}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">Costo Total</div>
+                    </div>
+                    <div className="bg-white rounded-lg p-4 shadow-sm border border-purple-100">
+                        <div className="text-3xl font-bold text-purple-600">{proveedores.length}</div>
+                        <div className="text-sm text-gray-600 mt-1">Proveedores</div>
+                    </div>
+                </div>
+            </div>
+
             {/* Resumen de selección */}
             {(auditoriasSeleccionadas.size > 0 || proveedoresSeleccionados.size > 0) && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -346,7 +457,7 @@ const SolicitarPresupuestos = () => {
                             <div className="text-sm text-gray-600">Medicamentos</div>
                         </div>
                         <div className="bg-white rounded-lg p-3">
-                            <div className="text-xl font-bold text-orange-600">${costoTotal.toLocaleString()}</div>
+                            <div className="text-xl font-bold text-orange-600">{formatearPrecioResumen(costoTotal)}</div>
                             <div className="text-sm text-gray-600">Costo Total</div>
                         </div>
                         <div className="bg-white rounded-lg p-3">
@@ -386,6 +497,30 @@ const SolicitarPresupuestos = () => {
                             auditorias.map((auditoria) => {
                                 const isSelected = auditoriasSeleccionadas.has(auditoria.id);
 
+                                // 🔥 Función para obtener el badge de prioridad con colores
+                                const getPrioridadBadge = (prioridad) => {
+                                    switch (prioridad) {
+                                        case 'ALTA':
+                                            return 'bg-red-100 text-red-800 border border-red-300';
+                                        case 'MEDIA':
+                                            return 'bg-yellow-100 text-yellow-800 border border-yellow-300';
+                                        case 'NORMAL':
+                                            return 'bg-green-100 text-green-800 border border-green-300';
+                                        default:
+                                            return 'bg-gray-100 text-gray-800 border border-gray-300';
+                                    }
+                                };
+
+                                // 🔥 Función para formatear precio con puntos de miles y coma decimal
+                                const formatearPrecio = (precio) => {
+                                    if (!precio && precio !== 0) return '$0,00';
+                                    const numero = parseFloat(precio);
+                                    const partes = numero.toFixed(2).split('.');
+                                    const entero = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                                    const decimal = partes[1];
+                                    return `$${entero},${decimal}`;
+                                };
+
                                 return (
                                     <div
                                         key={auditoria.id}
@@ -396,64 +531,149 @@ const SolicitarPresupuestos = () => {
                                         onClick={() => handleAuditoriaSelect(auditoria.id)}
                                     >
                                         <div className="flex justify-between items-start mb-3">
-                                            <div>
-                                                <h3 className="font-semibold text-gray-900">#{auditoria.id}</h3>
-                                                <p className="text-sm text-gray-600">{auditoria.paciente?.nombre}</p>
-                                                <p className="text-xs text-gray-500">DNI: {auditoria.paciente?.dni}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-lg font-bold text-orange-600">
-                                                    ${(auditoria.costoTotal || 0).toLocaleString()}
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <h3 className="font-semibold text-gray-900">#{auditoria.id}</h3>
+                                                    {/* 🔥 BADGE DE PRIORIDAD */}
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${getPrioridadBadge(auditoria.prioridad)}`}>
+                                                        {auditoria.prioridad === 'ALTA' && '🔴 '}
+                                                        {auditoria.prioridad === 'MEDIA' && '🟡 '}
+                                                        {auditoria.prioridad === 'NORMAL' && '🟢 '}
+                                                        {auditoria.prioridad}
+                                                    </span>
                                                 </div>
-                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${auditoria.prioridad === 'ALTA'
-                                                    ? 'bg-red-100 text-red-800'
-                                                    : 'bg-yellow-100 text-yellow-800'
-                                                    }`}>
-                                                    {auditoria.prioridad}
-                                                </span>
+                                                <p className="text-sm font-medium text-gray-900">{auditoria.paciente?.nombre}</p>
+                                                <p className="text-xs text-gray-500">DNI: {auditoria.paciente?.dni}</p>
+
+                                                {/* 🔥 FECHA DE EMISIÓN Y DÍAS TRANSCURRIDOS */}
+                                                <div className="mt-2 flex items-center gap-3 text-xs">
+                                                    <span className="text-gray-600">
+                                                        📅 Emisión: <strong>{auditoria.fechaEmision}</strong>
+                                                    </span>
+                                                    <span className={`font-semibold ${auditoria.diasDesdeEmision > 15 ? 'text-red-600' : auditoria.diasDesdeEmision > 7 ? 'text-yellow-600' : 'text-green-600'}`}>
+                                                        ⏰ {auditoria.diasDesdeEmision} día{auditoria.diasDesdeEmision !== 1 ? 's' : ''}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right ml-4">
+                                                {/* 🔥 PRECIO TOTAL REAL */}
+                                                <div className="text-xl font-bold text-orange-600">
+                                                    {formatearPrecio(auditoria.precioTotal)}
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-1">Precio Total</p>
                                             </div>
                                         </div>
 
-                                        <div className="space-y-2">
-                                            <div className="text-sm">
-                                                <strong>Auditor:</strong> {auditoria.auditor}
+                                        <div className="grid grid-cols-2 gap-3 text-sm">
+                                            <div>
+                                                <strong className="text-gray-700">Auditor:</strong>
+                                                <p className="text-gray-600">{auditoria.auditor}</p>
                                             </div>
-                                            <div className="text-sm">
-                                                <strong>Fecha:</strong> {auditoria.fechaAprobacion}
-                                            </div>
-                                            <div className="text-sm">
-                                                <strong>Medicamentos:</strong> {auditoria.medicamentos?.length || 0}
+                                            <div>
+                                                <strong className="text-gray-700">Medicamentos:</strong>
+                                                <p className="text-gray-600">{auditoria.renglones || 0} aprobado{auditoria.renglones !== 1 ? 's' : ''}</p>
                                             </div>
                                         </div>
 
-                                        {mostrarDetalle === auditoria.id && auditoria.medicamentos && (
+                                        {/* 🔥 DETALLE DE MEDICAMENTOS - Tabla Profesional */}
+                                        {mostrarDetalle === auditoria.id && auditoria.medicamentos && auditoria.medicamentos.length > 0 && (
                                             <div className="mt-4 pt-4 border-t border-gray-200">
-                                                <h4 className="font-medium mb-2">Medicamentos:</h4>
-                                                {auditoria.medicamentos.map((med, idx) => (
-                                                    <div key={idx} className="flex justify-between text-sm mb-1">
-                                                        <span>{med.nombre}</span>
-                                                        <span>${(med.costoEstimado || 0).toLocaleString()}</span>
-                                                    </div>
-                                                ))}
-                                                {auditoria.observaciones && (
-                                                    <div className="mt-2">
-                                                        <strong className="text-sm">Observaciones:</strong>
-                                                        <p className="text-sm text-gray-600">{auditoria.observaciones}</p>
-                                                    </div>
-                                                )}
+                                                <div className="overflow-x-auto">
+                                                    <table className="min-w-full divide-y divide-gray-300 border border-gray-300 rounded-md">
+                                                        <thead className="bg-gray-50">
+                                                            <tr>
+                                                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
+                                                                    #
+                                                                </th>
+                                                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
+                                                                    Medicamento
+                                                                </th>
+                                                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
+                                                                    Monodroga
+                                                                </th>
+                                                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
+                                                                    Presentación
+                                                                </th>
+                                                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
+                                                                    Cant.
+                                                                </th>
+                                                                <th className="px-3 py-2 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
+                                                                    P. Unit.
+                                                                </th>
+                                                                <th className="px-3 py-2 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                                                    P. Total
+                                                                </th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="bg-white divide-y divide-gray-200">
+                                                            {auditoria.medicamentos.map((med, idx) => (
+                                                                <tr key={idx} className="hover:bg-gray-50">
+                                                                    <td className="px-3 py-2 text-sm text-gray-900 border-r border-gray-200 font-medium">
+                                                                        {med.nro_orden}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-sm border-r border-gray-200">
+                                                                        <div className="font-medium text-gray-900">{med.nombre_comercial || 'Sin nombre'}</div>
+                                                                        {med.codigo && <div className="text-xs text-gray-500">Cód: {med.codigo}</div>}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-sm text-gray-700 border-r border-gray-200">
+                                                                        {med.monodroga || '-'}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-sm text-gray-700 border-r border-gray-200">
+                                                                        {med.presentacion || '-'}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-sm text-center text-gray-900 border-r border-gray-200 font-medium">
+                                                                        {med.cantidad || 0}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-sm text-right text-gray-900 border-r border-gray-200 font-medium">
+                                                                        {formatearPrecio(med.precio_unitario)}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-sm text-right font-semibold text-orange-600">
+                                                                        {formatearPrecio(med.precio_total)}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                        <tfoot className="bg-gray-50">
+                                                            <tr>
+                                                                <td colSpan="6" className="px-3 py-2 text-sm font-semibold text-right text-gray-900 border-t-2 border-gray-300">
+                                                                    Total Auditoría:
+                                                                </td>
+                                                                <td className="px-3 py-2 text-sm text-right font-bold text-orange-600 border-t-2 border-gray-300">
+                                                                    {formatearPrecio(auditoria.precioTotal)}
+                                                                </td>
+                                                            </tr>
+                                                        </tfoot>
+                                                    </table>
+                                                </div>
                                             </div>
                                         )}
 
                                         <div className="mt-3 flex justify-between items-center">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setMostrarDetalle(mostrarDetalle === auditoria.id ? null : auditoria.id);
-                                                }}
-                                                className="text-xs text-blue-600 hover:text-blue-800"
-                                            >
-                                                {mostrarDetalle === auditoria.id ? 'Ocultar' : 'Ver'} Detalle
-                                            </button>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-xs text-gray-500">
+                                                    📦 Recepción: {auditoria.fechaRecepcion}
+                                                </span>
+
+                                                {/* 🔥 BOTÓN VER DETALLE */}
+                                                {auditoria.medicamentos && auditoria.medicamentos.length > 0 && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setMostrarDetalle(mostrarDetalle === auditoria.id ? null : auditoria.id);
+                                                        }}
+                                                        className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 font-medium hover:underline"
+                                                    >
+                                                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            {mostrarDetalle === auditoria.id ? (
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                                            ) : (
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                            )}
+                                                        </svg>
+                                                        {mostrarDetalle === auditoria.id ? 'Ocultar' : 'Ver'} Detalle
+                                                    </button>
+                                                )}
+                                            </div>
 
                                             {isSelected && (
                                                 <CheckCircleIcon className="h-5 w-5 text-blue-600" />
@@ -542,18 +762,23 @@ const SolicitarPresupuestos = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Select con opciones predefinidas */}
+                    {/* Select con opciones predefinidas O fecha específica */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Seleccione un plazo
                         </label>
                         <select
-                            value={modoExpiracionPersonalizado ? 'personalizado' : horasExpiracion}
+                            value={usarFechaEspecifica ? 'fecha-especifica' : (modoExpiracionPersonalizado ? 'personalizado' : horasExpiracion)}
                             onChange={(e) => {
                                 const valor = e.target.value;
-                                if (valor === 'personalizado') {
+                                if (valor === 'fecha-especifica') {
+                                    setUsarFechaEspecifica(true);
+                                    setModoExpiracionPersonalizado(false);
+                                } else if (valor === 'personalizado') {
+                                    setUsarFechaEspecifica(false);
                                     setModoExpiracionPersonalizado(true);
                                 } else {
+                                    setUsarFechaEspecifica(false);
                                     setModoExpiracionPersonalizado(false);
                                     setHorasExpiracion(parseInt(valor));
                                 }
@@ -570,10 +795,27 @@ const SolicitarPresupuestos = () => {
                             <option value="336">336 horas (2 semanas)</option>
                             <option value="720">720 horas (30 días / máximo)</option>
                             <option value="personalizado">⚙️ Personalizado...</option>
+                            <option value="fecha-especifica">📅 Fecha y Hora Específica</option>
                         </select>
                     </div>
 
-                    {/* Input personalizado (si está en modo personalizado) */}
+                    {/* Input de Fecha y Hora Específica */}
+                    {usarFechaEspecifica && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Fecha y Hora de Vencimiento
+                            </label>
+                            <input
+                                type="datetime-local"
+                                value={fechaHoraExpiracion}
+                                onChange={(e) => handleFechaHoraChange(e.target.value)}
+                                min={getFechaHoraMinima()}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                        </div>
+                    )}
+
+                    {/* Input personalizado de horas (si está en modo personalizado) */}
                     {modoExpiracionPersonalizado && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -610,16 +852,6 @@ const SolicitarPresupuestos = () => {
                                     </p>
                                     <p className="text-lg font-bold text-orange-700 mt-1">
                                         {calcularFechaExpiracion()}
-                                    </p>
-                                    <p className="text-sm text-gray-600 mt-1">
-                                        {(() => {
-                                            const { dias, horasRestantes } = calcularDiasYHoras();
-                                            if (dias > 0) {
-                                                return `⏰ ${horasExpiracion} horas (${dias} día${dias > 1 ? 's' : ''} ${horasRestantes > 0 ? `y ${horasRestantes} hora${horasRestantes > 1 ? 's' : ''}` : ''})`;
-                                            } else {
-                                                return `⏰ ${horasExpiracion} hora${horasExpiracion > 1 ? 's' : ''}`;
-                                            }
-                                        })()}
                                     </p>
                                 </div>
                             </div>

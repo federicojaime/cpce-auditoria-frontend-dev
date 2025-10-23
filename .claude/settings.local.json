@@ -14,7 +14,12 @@
       "Read(//c/Users/FNJai/Pictures/Desktop/alto costo nuevo/cpce-auditoria-api-dev (1)/cpce-auditoria-api-dev/middleware/**)",
       "Read(//c/Users/FNJai/Pictures/Desktop/alto costo nuevo/cpce-auditoria-api-dev (1)/cpce-auditoria-api-dev/controllers/**)",
       "Read(//c/Users/FNJai/Pictures/Desktop/alto costo nuevo/cpce-auditoria-api-dev (1)/cpce-auditoria-api-dev/**)",
-      "Read(//c/Users/FNJai/Pictures/Desktop/alto costo nuevo/cpce-auditoria-api-dev (1)/cpce-auditoria-api-dev/routes/**)"
+      "Read(//c/Users/FNJai/Pictures/Desktop/alto costo nuevo/cpce-auditoria-api-dev (1)/cpce-auditoria-api-dev/routes/**)",
+      "Bash(wc -l \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-frontend-dev (1)\\cpce-auditoria-frontend-dev\\src\\pages\\SeguimientoPresupuestos.jsx\")",
+      "Bash(wc -l \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-frontend-dev (1)\\cpce-auditoria-frontend-dev\\src\\pages\\ProcesarAuditoria.jsx\")",
+      "Bash(ls \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-frontend-dev (1)\\cpce-auditoria-frontend-dev\\src\\pages\")",
+      "Bash(test -f \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-frontend-dev (1)\\cpce-auditoria-frontend-dev\\src\\pages\\ReportesCompras.jsx\")",
+      "Bash(wc -l \"c:\\Users\\FNJai\\Pictures\\Desktop\\alto costo nuevo\\cpce-auditoria-frontend-dev (1)\\cpce-auditoria-frontend-dev\\src\\pages\\ReportesCompras.jsx\")"
     ],
     "deny": [],
     "ask": []
